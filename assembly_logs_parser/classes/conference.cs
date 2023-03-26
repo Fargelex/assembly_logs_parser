@@ -8,31 +8,48 @@ namespace assembly_logs_parser.classes
 {
     internal class conference
     {
-        private DateTime _date; // дата проведения селектора
-        private int _ID; // уникальный ID селектора
+        private int _clasterID = 1; // уникальный ID кластера
+        private int _ID; // уникальный ID селектора (задаётся автоматически, нельзя поменять)
         private string _name; // имя селектора
-        private DateTime _start_time; // время начала сектора
-        private DateTime _stop_time; //время завершения селектора
-        private int _real_duration; // фактическая продолжительность
-        private int _real_participants_count; // фактическое кол-во участников
-        private string _manager_name; // кто запустил селектор
-        private int _seted_duration; // заданная продолжительность
-        private int _seted_participants_count; // заданное кол-во участников
+        private int _identify_code; // код идентификации (можно задать вручную, можно менять) (IDENTIFY_CODE)
+        private int _participants_count; // кол-во участников (NP_MAX_CH)
+        private int _can_speak_participants_count; // могут говорить (NP_MAX_DSP)
+        private int _duration; // продолжительность (NP_MAX_TIME)
 
-        public conference(string Date, string ID, string Name, string start_time, string stop_time, string real_duration,
-            string real_participants_count, string seted_duration, string seted_participants_count, string manager_name = "Планировщик")
+        public conference(int clasterID, int ID, string name, int identify_code, int participants_count, int can_speak_participants_count, int duration)
         {
-            _date = Convert.ToDateTime(Date);
-            _ID = Convert.ToInt32(ID);
-            _name = Name;
-            _start_time = Convert.ToDateTime(start_time);
-            _stop_time = Convert.ToDateTime(stop_time);
-            _real_duration = Convert.ToInt32(real_duration);
-            _real_participants_count = Convert.ToInt32(real_participants_count);
-            _manager_name = manager_name;
-            _seted_duration = Convert.ToInt32(seted_duration);
-            _seted_participants_count = Convert.ToInt32(seted_participants_count);
+            _clasterID = clasterID;
+            _ID = ID;
+            _name = name;
+            _identify_code = identify_code;
+            _participants_count = participants_count;
+            _can_speak_participants_count = can_speak_participants_count;
+            _duration = duration;
         }
 
+        public int ID
+        {
+            get { return _ID; }
+            set { _ID = value; }
+        }
+
+        public string Name
+        {
+            get { return _name; }
+            set { _name = value; }
+        }
+
+        public int Participants_count
+        {
+            get { return _participants_count; }
+            set { _participants_count = value; }
+        }
+
+        public int Duration
+        {
+            get { return _duration; }
+            set { _duration = value; }
+        }
     }
+
 }
