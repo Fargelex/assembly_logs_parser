@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace assembly_logs_parser
@@ -86,7 +87,8 @@ namespace assembly_logs_parser
         static void Main(string[] args)
         {
             load_settings();
-            load_data_base();
+            //  load_data_base();
+            scan_logs();
             Console.ReadKey();
         }
 
@@ -144,12 +146,23 @@ namespace assembly_logs_parser
             Console.WriteLine(log_string);
             if (add_to_text_log)
             {
-                File.AppendAllText("assembly_logs_parser.log", log_string + "\r\n");
+                File.AppendAllText("assembly_logs_parser_log.log", log_string + "\r\n");
             }
         }
 
         private static void load_settings()
         {
+            if (!Directory.Exists("селектора")) // папка в которую будут сохраняться селектора выбранные из лог файлов
+            {
+                add_to_main_log("создаю папку 'селектора' в " + Path.GetFullPath("селектора"));
+                Directory.CreateDirectory("селектора");
+            }
+            if (!Directory.Exists("assemblylogsparser_temp_folder")) // папка в которую будет сохраняться рабочая инфа программы
+            {
+                add_to_main_log("создаю папку 'assemblylogsparser_temp_folder' в " + Path.GetFullPath("assemblylogsparser_temp_folder"));
+                Directory.CreateDirectory("assemblylogsparser_temp_folder");
+            }
+
             List<string> fields_list = new List<string> { };
             if (File.Exists("assembly_logs_parser_settings.ini"))
             {
@@ -191,12 +204,39 @@ namespace assembly_logs_parser
                 string[] default_settings = new string[] {
                 "[logs_path] путь к папке с файлами логов селекторов" ,
                     "logs",
+                 "[logs_regex] маска для поиска лог файлов, по умолчанию 20210127_102717.log",
+                    @"\d{8}_\d{6}.log",
                 "[data_base] путь к базе данных",
-                    @"db\data.rtdb",
+                    @"db\data.rtdb"
                 };
                 File.WriteAllLines("assembly_logs_parser_settings.ini", default_settings);
                 load_settings();
             }
+        }
+
+
+        private static void scan_logs()
+        {
+            string[] start_conference = new string[] { "started conference", "run conference" }; // признаки запуска конференции
+
+            // список файлов исходных логов Ассамблеи
+            string logs_files_path = Path.GetFullPath(settings_dictionary["logs_path"].First());
+            add_to_main_log("читаю список логов из папки: " + logs_files_path);
+            string[] assembly_logs_files_paths = Directory.GetFiles(logs_files_path, "*.log");
+            add_to_main_log("загружено [" + assembly_logs_files_paths.Length.ToString() + "] файлов <*.log>");
+
+            foreach (string assembly_logs_file_path in assembly_logs_files_paths)
+            {
+                Regex logs_filename_regex = new Regex(settings_dictionary["logs_regex"].First()); // log filename ex -  20210127_102717.log
+                Match logs_filename_match = logs_filename_regex.Match(assembly_logs_file_path);
+                if (logs_filename_match.Success)
+                {
+                    Console.WriteLine(logs_filename_match.Value);
+                }
+
+
+            }
+
         }
 
     }
