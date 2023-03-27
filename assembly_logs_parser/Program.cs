@@ -77,12 +77,12 @@ namespace assembly_logs_parser
         #endregion
 
         static Dictionary<string, List<string>> settings_dictionary = new Dictionary<string, List<string>> { };
-        
+
 
         static Dictionary<int, conference> conferences = new Dictionary<int, conference> { };
 
-        
-            static string data_base_filename = "";
+
+        static string data_base_filename = "";
 
         static void Main(string[] args)
         {
@@ -140,7 +140,7 @@ namespace assembly_logs_parser
 
 
 
-            private static void add_to_main_log(string text_log, bool add_to_text_log = true)
+        private static void add_to_main_log(string text_log, bool add_to_text_log = true)
         {
             string log_string = '[' + DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss") + "]\t" + text_log.Trim();
             Console.WriteLine(log_string);
@@ -220,24 +220,34 @@ namespace assembly_logs_parser
             string[] start_conference = new string[] { "started conference", "run conference" }; // признаки запуска конференции
 
             // список файлов исходных логов Ассамблеи
-            string logs_files_path = Path.GetFullPath(settings_dictionary["logs_path"].First());
+            string logs_files_path = Path.GetFullPath(settings_dictionary["logs_path"].First()); // путь к файлам логов загружем из настроек
             add_to_main_log("читаю список логов из папки: " + logs_files_path);
-            string[] assembly_logs_files_paths = Directory.GetFiles(logs_files_path, "*.log");
-            add_to_main_log("загружено [" + assembly_logs_files_paths.Length.ToString() + "] файлов <*.log>");
+            string[] assembly_logs_files_paths_temp = Directory.GetFiles(logs_files_path, "*.log"); // все подряд файлы *.log в директории
+            List<string> assembly_logs_files_paths = new List<string>() { }; // здесь только файлы, попадающеие под маску 20210127_102717.log (таким образом в выборку не попадет файл output.log и любые другие с изменённым именем)
 
-            foreach (string assembly_logs_file_path in assembly_logs_files_paths)
+            foreach (string assembly_logs_file_path_temp in assembly_logs_files_paths_temp) // выбираем только те файлы, имя которых соответствует маске указанной в настройках раздела logs_regex
             {
                 Regex logs_filename_regex = new Regex(settings_dictionary["logs_regex"].First()); // log filename ex -  20210127_102717.log
-                Match logs_filename_match = logs_filename_regex.Match(assembly_logs_file_path);
+                Match logs_filename_match = logs_filename_regex.Match(Path.GetFileName(assembly_logs_file_path_temp));
                 if (logs_filename_match.Success)
                 {
-                    Console.WriteLine(logs_filename_match.Value);
+                    //если имя файла из пути совпадает с маской, то сохраняем весь путь целиком до этого файла
+                    assembly_logs_files_paths.Add(assembly_logs_file_path_temp);
                 }
-
-
             }
-
+            if (assembly_logs_files_paths.Count == 0)
+            {
+                add_to_main_log("в папке [" + logs_files_path + "]\r\n отсутствуют файлы название которых соответствует маске [" + settings_dictionary["logs_regex"].First() + "], указанной в файле настроек [assembly_logs_parser_settings.ini]");
+            }
+            else
+                add_to_main_log("загружено [" + assembly_logs_files_paths.Count + "] файлов <yyyyMMdd_hhmmss.log>");
         }
 
+
+
+
+
     }
+
 }
+
