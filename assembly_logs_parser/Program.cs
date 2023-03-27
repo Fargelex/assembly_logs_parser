@@ -83,6 +83,7 @@ namespace assembly_logs_parser
 
 
         static string data_base_filename = "";
+        static string processed_log_files = Path.GetFullPath("assemblylogsparser_temp_folder") + "\\processed_log_files.txt";
 
         static void Main(string[] args)
         {
@@ -161,6 +162,9 @@ namespace assembly_logs_parser
             {
                 add_to_main_log("создаю папку 'assemblylogsparser_temp_folder' в " + Path.GetFullPath("assemblylogsparser_temp_folder"));
                 Directory.CreateDirectory("assemblylogsparser_temp_folder");
+                
+                add_to_main_log("создаю файл 'processed_log_files.txt' в " + processed_log_files, false);
+                File.AppendAllText(processed_log_files, "# logs файлы ассамблеи, которые были обработаны программой" + "\r\n");
             }
 
             List<string> fields_list = new List<string> { };
@@ -217,12 +221,13 @@ namespace assembly_logs_parser
 
         private static void scan_logs()
         {
-            string[] start_conference = new string[] { "started conference", "run conference" }; // признаки запуска конференции
+            string[] start_conference = new string[] { "started conference", "run conference", "load conference" }; // признаки запуска конференции
 
-            // список файлов исходных логов Ассамблеи
+            //=================  формируем список лог файлов для обработки [assembly_logs_files_paths] =======================
             string logs_files_path = Path.GetFullPath(settings_dictionary["logs_path"].First()); // путь к файлам логов загружем из настроек
             add_to_main_log("читаю список логов из папки: " + logs_files_path);
             string[] assembly_logs_files_paths_temp = Directory.GetFiles(logs_files_path, "*.log"); // все подряд файлы *.log в директории
+
             List<string> assembly_logs_files_paths = new List<string>() { }; // здесь только файлы, попадающеие под маску 20210127_102717.log (таким образом в выборку не попадет файл output.log и любые другие с изменённым именем)
 
             foreach (string assembly_logs_file_path_temp in assembly_logs_files_paths_temp) // выбираем только те файлы, имя которых соответствует маске указанной в настройках раздела logs_regex
@@ -241,6 +246,50 @@ namespace assembly_logs_parser
             }
             else
                 add_to_main_log("загружено [" + assembly_logs_files_paths.Count + "] файлов <yyyyMMdd_hhmmss.log>");
+
+            //==================== сканируем каждый файл построчно ====================================================================
+            Regex auto_conf_ID_regex = new Regex(@"Run conference: ClusterId=\d Id=\d?\d?\d?\d\d\d\d SchemeId=\d?\d?\d");
+            // L120[19.02.2021 07:00:00-620](ID:01-0208 VSPThread:CONFPP)->Run conference: ClusterId=1 Id=19820 SchemeId=77
+
+            Regex conf_ID_regex = new Regex(@"VSPThread:CONF\(\d-\d?\d?\d");
+            //"VSPThread:CONF(1-203"
+            int i = 0;
+            foreach (string assembly_logs_file_path in assembly_logs_files_paths)
+            {
+                i++;                
+                add_to_main_log(String.Format("сканирую {0} [{1}/{2}]", Path.GetFileName(assembly_logs_file_path), i, assembly_logs_files_paths.Count));
+                string[] assembly_log_file_lines = File.ReadAllLines(assembly_logs_file_path);
+
+                foreach (string assembly_log_file_line in assembly_log_file_lines)
+                {
+                    string conf_id = "";
+
+                    Match auto_conf_ID_match = auto_conf_ID_regex.Match(assembly_log_file_line);
+                    if (auto_conf_ID_match.Success)
+                    {
+                        //  L120[19.02.2021 07:00:00-620](ID:01-0208 VSPThread:CONFPP)->Run conference: ClusterId=1 Id=19820 SchemeId=77
+                        // делим по знаку равно, последний элемент массива - номер ID селектора
+                        conf_id = auto_conf_ID_match.Value.Split('=').Last();
+                    }
+
+                    Match conf_ID_match = conf_ID_regex.Match(assembly_log_file_line);
+                    //делим строку  "VSPThread:CONF(1-203" через дефис и сохраняем ID селектора
+                    if (conf_ID_match.Success)
+                    {
+                        conf_id = conf_ID_match.Value.Split('-')[1];
+                    }
+                    if (conf_id!="")
+                    {
+                        string temp_conf_id_file = Path.GetFullPath("assemblylogsparser_temp_folder") + "\\" + conf_id + ".txt";
+                        File.AppendAllText(temp_conf_id_file, assembly_log_file_line + "\r\n");
+                    }
+                    
+                }
+
+
+            }
+
+
         }
 
 
