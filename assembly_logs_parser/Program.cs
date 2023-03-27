@@ -1,4 +1,5 @@
-﻿using System;
+﻿using assembly_logs_parser.classes;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -67,7 +68,7 @@ namespace assembly_logs_parser
             CLUSTER_ID=int
             ID=int
             NAME=string (ex. - Название селектора)
-            IDENTIFY_CODE = 01
+            IDENTIFY_CODE =int
             NP_MAX_CH=int
             NP_MAX_DSP=int
             NP_MAX_TIME=int
@@ -75,10 +76,12 @@ namespace assembly_logs_parser
         #endregion
 
         static Dictionary<string, List<string>> settings_dictionary = new Dictionary<string, List<string>> { };
-        static Dictionary<string, List<string>> data_base_dictionary = new Dictionary<string, List<string>> { };
+        
 
-        static Dictionary<string, List<string>> VSP_CONF_SCHEMES = new Dictionary<string, List<string>> { };
-        static string data_base_filename = "";
+        static Dictionary<int, conference> conferences = new Dictionary<int, conference> { };
+
+        
+            static string data_base_filename = "";
 
         static void Main(string[] args)
         {
@@ -89,40 +92,50 @@ namespace assembly_logs_parser
 
         private static void load_data_base()
         {
+            Dictionary<string, List<List<string>>> data_base_dictionary = new Dictionary<string, List<List<string>>> { };
+
             string[] data_rtdb = File.ReadAllLines(Path.GetFullPath(settings_dictionary["data_base"].First()));
             string last_key = "";
+            List<string> data = new List<string>(); // значения для одной записи
             foreach (string db_string in data_rtdb)
             {
-                if (db_string != "")
+                if (db_string != "") // записи в БД разделены пустой строкой
                 {
-                    if (db_string[0] == '[')
+                    if (db_string[0] == '[') // название таблицы в квадратных скобках
                     {
-                        last_key = db_string.Split(']')[0].Replace('[', ' ').Trim();
-                        if (!data_base_dictionary.ContainsKey(last_key))
+                        last_key = db_string.Split(']')[0].Replace('[', ' ').Trim(); // запоминаем название таблицы и делаем его ключом в словаре
+                        if (!data_base_dictionary.ContainsKey(last_key)) // если такого ключа нет, добавлем ключ и пустой список значений
                         {
-                            data_base_dictionary.Add(last_key, new List<string> { });
+                            data_base_dictionary.Add(last_key, new List<List<string>> { });
                         }
                     }
                     else
                     {
-                        data_base_dictionary[last_key].Add(db_string.Trim());
+                        data.Add(db_string.Trim());
+                        //      data_base_dictionary[last_key].Add(db_string.Trim());
                     }
                 }
                 else
                 {
-                    data_base_dictionary[last_key].Add(db_string.Trim());
+                    data_base_dictionary[last_key].Add(data);
+                    data = new List<string>();
+                }
+            }
+
+            foreach (List<string> item in data_base_dictionary["VSP_CONF_SCHEMES"])
+            {
+                conference conf = new conference(item);
+                if (!conferences.ContainsKey(conf.ID))
+                {
+                    conferences.Add(conf.ID, conf);
+                }
+                else
+                {
+                    add_to_main_log("в словаре конференций одинаковые ID: [" + conf.ID.ToString() + " " + conf.Name + "] и [" + conferences[conf.ID].ID.ToString() + " " + conferences[conf.ID].Name);
                 }
             }
         }
 
-
-        private static void load_VSP_CONF_SCHEMES()
-        {
-            foreach (string item in data_base_dictionary["VSP_CONF_SCHEMES"])
-            {
-
-            }
-        }
 
 
             private static void add_to_main_log(string text_log, bool add_to_text_log = true)
