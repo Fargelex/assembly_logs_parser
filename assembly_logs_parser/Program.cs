@@ -87,9 +87,13 @@ namespace assembly_logs_parser
 
         static void Main(string[] args)
         {
-            load_settings();
+            if (load_settings())
+            {
+                scan_logs();
+            }
+            
             //  load_data_base();
-            scan_logs();
+            
             Console.ReadKey();
         }
 
@@ -151,8 +155,9 @@ namespace assembly_logs_parser
             }
         }
 
-        private static void load_settings()
+        private static bool load_settings()
         {
+            bool no_errors = true;
             if (!Directory.Exists("селектора")) // папка в которую будут сохраняться селектора выбранные из лог файлов
             {
                 add_to_main_log("создаю папку 'селектора' в " + Path.GetFullPath("селектора"));
@@ -189,14 +194,15 @@ namespace assembly_logs_parser
                 }
                 if (!Directory.Exists(settings_dictionary["logs_path"].First()))
                 {
-                    add_to_main_log("в файле assembly_logs_parser_settings.ini не корректно указан путь к папке с файлами логов");
-                    add_to_main_log(Path.GetFullPath(settings_dictionary["logs_path"].First()), false);
+                    add_to_main_log("директория " + Path.GetFullPath(settings_dictionary["logs_path"].First() + " указанная в файле [assembly_logs_parser_settings.ini] - не существует"));
+                    no_errors = false;
                 }
 
                 if (!File.Exists(settings_dictionary["data_base"].First()))
                 {
                     add_to_main_log("в файле assembly_logs_parser_settings.ini указан путь к папке в которой отсутстует файл базой данных - data.rtdb");
                     add_to_main_log(Path.GetFullPath(settings_dictionary["data_base"].First()), false);
+                    no_errors = false;
                 }
 
                 data_base_filename = Path.GetFileName(settings_dictionary["data_base"].First());
@@ -216,6 +222,7 @@ namespace assembly_logs_parser
                 File.WriteAllLines("assembly_logs_parser_settings.ini", default_settings);
                 load_settings();
             }
+            return no_errors;
         }
 
 
@@ -285,7 +292,6 @@ namespace assembly_logs_parser
                     }
                     
                 }
-
 
             }
 
