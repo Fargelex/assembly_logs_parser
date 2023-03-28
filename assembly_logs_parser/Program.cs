@@ -340,11 +340,16 @@ namespace assembly_logs_parser
             add_to_main_log("готово", false);
         }
 
+        private static void scan_processed_log_files()
+        {
+
+        }
 
 
 
 
-    }
+
+        }
 
 }
 
