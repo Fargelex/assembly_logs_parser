@@ -255,11 +255,20 @@ namespace assembly_logs_parser
                 add_to_main_log("загружено [" + assembly_logs_files_paths.Count + "] файлов <yyyyMMdd_hhmmss.log>");
 
             //==================== сканируем каждый файл построчно ====================================================================
-            Regex auto_conf_ID_regex = new Regex(@"Run conference: ClusterId=\d Id=\d?\d?\d?\d\d\d\d SchemeId=\d?\d?\d");
+            Regex auto_conf_ID_regex = new Regex(@"[Rr]un conference: ClusterId=\d* Id=\d* SchemeId=\d*");
             // L120[19.02.2021 07:00:00-620](ID:01-0208 VSPThread:CONFPP)->Run conference: ClusterId=1 Id=19820 SchemeId=77
 
-            Regex conf_ID_regex = new Regex(@"VSPThread:CONF\(\d-\d?\d?\d");
+            Regex conf_ID_regex = new Regex(@"VSPThread:CONF\(\d*-\d*");
             //"VSPThread:CONF(1-203"
+
+            Regex client_seance_ID_fullstring_regex = new Regex(@"->Outgoing seance \d* come in to conference");
+            Regex client_seance_ID_regex = new Regex(@" \d* ");
+
+            Regex snc_ID_regex = new Regex(@"(snc|SNC)=\d*"); 
+            //VSPThread:CONF(1-77).PARTY(2-0,1283,Мастер бр.№2)->Outgoing seance 755349 come in to conference
+
+            Dictionary<string, string> client_seance_ID_Dictionary = new Dictionary<string, string>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_абонента, ID_конференции>
+
             int i = 0;
             foreach (string assembly_logs_file_path in assembly_logs_files_paths)
             {
@@ -276,15 +285,48 @@ namespace assembly_logs_parser
                     {
                         //  L120[19.02.2021 07:00:00-620](ID:01-0208 VSPThread:CONFPP)->Run conference: ClusterId=1 Id=19820 SchemeId=77
                         // делим по знаку равно, последний элемент массива - номер ID селектора
-                        conf_id = auto_conf_ID_match.Value.Split('=').Last();
+                        conf_id = auto_conf_ID_match.Value.Split('=').Last().Trim();
                     }
 
                     Match conf_ID_match = conf_ID_regex.Match(assembly_log_file_line);
                     //делим строку  "VSPThread:CONF(1-203" через дефис и сохраняем ID селектора
                     if (conf_ID_match.Success)
                     {
-                        conf_id = conf_ID_match.Value.Split('-')[1];
+                        conf_id = conf_ID_match.Value.Split('-')[1].Trim();
                     }
+                    Match client_seance_ID_match = client_seance_ID_fullstring_regex.Match(assembly_log_file_line);
+                    //VSPThread:CONF(1-77).PARTY(11-0,2973,ФИО)->Outgoing seance 755411 come in to conference
+                    if (client_seance_ID_match.Success)
+                    {
+                        // <из строчки Outgoing seance 755411 come in to conference> берём только ID сеанса
+                        Match client_seance_ID_match_ = client_seance_ID_regex.Match(client_seance_ID_match.Value);
+                        if (client_seance_ID_match_.Success)
+                        {
+                            //' 755411 '
+                            if (!client_seance_ID_Dictionary.ContainsKey(client_seance_ID_match_.Value))
+                            {
+                                client_seance_ID_Dictionary.Add(client_seance_ID_match_.Value.Trim(), conf_id);
+                            }
+                            else
+                            {
+                                add_to_main_log(String.Format("Дублируется номер <{0}> сеанса в словаре активных сеансов абонента. Строка вызывающая ошибку: {1}", client_seance_ID_match_.Value, assembly_log_file_line));
+                            }
+                        }             
+                    }
+
+                    Match snc_ID_match = snc_ID_regex.Match(assembly_log_file_line);
+                    //строка содержит SNC=3439821 или snc=3439821
+                    if (snc_ID_match.Success)
+                    {
+                        // если ID сеанса есть в словаре, то получаем соответствующий ему ID селектора и эта строчка тоже попадёт в выборку
+                        string clean_snc_id = snc_ID_match.Value.Split('=')[1]; // убираем из value лишнее 'SNC='
+                        if (client_seance_ID_Dictionary.ContainsKey(clean_snc_id))
+                        {
+                            conf_id = client_seance_ID_Dictionary[clean_snc_id];
+                        }
+                    }
+
+
                     if (conf_id!="")
                     {
                         string temp_conf_id_file = Path.GetFullPath("assemblylogsparser_temp_folder") + "\\" + conf_id + ".txt";
@@ -295,7 +337,7 @@ namespace assembly_logs_parser
 
             }
 
-
+            add_to_main_log("готово", false);
         }
 
 
