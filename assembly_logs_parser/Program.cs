@@ -89,7 +89,8 @@ namespace assembly_logs_parser
         {
             if (load_settings())
             {
-                scan_logs();
+              //  scan_logs();
+                scan_processed_log_files();
             }
             
             //  load_data_base();
@@ -158,10 +159,10 @@ namespace assembly_logs_parser
         private static bool load_settings()
         {
             bool no_errors = true;
-            if (!Directory.Exists("селектора")) // папка в которую будут сохраняться селектора выбранные из лог файлов
+            if (!Directory.Exists("Селектора")) // папка в которую будут сохраняться селектора выбранные из лог файлов
             {
-                add_to_main_log("создаю папку 'селектора' в " + Path.GetFullPath("селектора"));
-                Directory.CreateDirectory("селектора");
+                add_to_main_log("создаю папку 'Селектора' в " + Path.GetFullPath("Селектора"));
+                Directory.CreateDirectory("Селектора");
             }
             if (!Directory.Exists("assemblylogsparser_temp_folder")) // папка в которую будет сохраняться рабочая инфа программы
             {
@@ -227,9 +228,7 @@ namespace assembly_logs_parser
 
 
         private static void scan_logs()
-        {
-            string[] start_conference = new string[] { "started conference", "run conference", "load conference" }; // признаки запуска конференции
-
+        {           
             //=================  формируем список лог файлов для обработки [assembly_logs_files_paths] =======================
             string logs_files_path = Path.GetFullPath(settings_dictionary["logs_path"].First()); // путь к файлам логов загружем из настроек
             add_to_main_log("читаю список логов из папки: " + logs_files_path);
@@ -337,11 +336,52 @@ namespace assembly_logs_parser
 
             }
 
-            add_to_main_log("готово", false);
+            
         }
 
         private static void scan_processed_log_files()
         {
+            string[] start_conference = new string[] { "started conference", "run conference" }; // признаки запуска конференции
+            string[] stop_conference = new string[] { "->State: Stop" }; // признаки завершения конференции
+
+
+            string[] processed_log_files_paths = Directory.GetFiles(Path.GetFullPath("assemblylogsparser_temp_folder"));
+
+            foreach (string processed_log_file_path in processed_log_files_paths)
+            {              
+
+                //Создаем папку с номером селектора, в которую будут сохраняться обработанные отдельные конференции
+                string conf_directory_path = "Селектора\\" + Path.GetFileName(processed_log_file_path);
+                if (!Directory.Exists(conf_directory_path))
+                {
+                    Directory.CreateDirectory(conf_directory_path);
+                }
+
+                //загружаем файл с определённой конференцией
+                string[] processed_log_file_lines = File.ReadAllLines(processed_log_file_path);
+
+                foreach (string processed_log_file_line in processed_log_file_lines)
+                {
+                    string new_conf_file_path = ""; // путь к файлу в который будут писаться все последующий строчки пока не попадётся признак завершения конференции
+                    foreach (var item in start_conference)
+                    {
+                        //проверяем, содержит ли строка один из признаков начала конференции
+                        if (processed_log_file_line.ToLower().IndexOf(item) >-1)
+                        {
+                            new_conf_file_path = "";
+
+                            string firstLine = processed_log_file_line.Split(']')[0]; //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
+                            firstLine = firstLine.Split('[')[1]; //"L120[04.01.2021 16:58:31-318 -> 04.01.2021 16:58:31-318
+                            firstLine = firstLine.Substring(0, firstLine.Length - 4); //04.01.2021 16:58:31
+                            string firstLineForStat = firstLine;
+                            firstLine = firstLine.Replace(':', '.'); //04.01.2021 16.58.31
+                        }
+                    }
+                }
+
+            }
+
+            add_to_main_log("готово", false);
 
         }
 
