@@ -89,8 +89,8 @@ namespace assembly_logs_parser
         {
             if (load_settings())
             {
-              //  scan_logs();
-                scan_processed_log_files();
+                scan_logs();
+              //  scan_processed_log_files();
             }
             
             //  load_data_base();
@@ -195,14 +195,14 @@ namespace assembly_logs_parser
                 }
                 if (!Directory.Exists(settings_dictionary["logs_path"].First()))
                 {
-                    add_to_main_log("директория " + Path.GetFullPath(settings_dictionary["logs_path"].First() + " указанная в файле [assembly_logs_parser_settings.ini] - не существует"));
+                    add_to_main_log("директория [" + Path.GetFullPath(settings_dictionary["logs_path"].First() + "] указанная в файле [assembly_logs_parser_settings.ini] - не существует"));
                     no_errors = false;
                 }
 
                 if (!File.Exists(settings_dictionary["data_base"].First()))
                 {
-                    add_to_main_log("в файле assembly_logs_parser_settings.ini указан путь к папке в которой отсутстует файл базой данных - data.rtdb");
-                    add_to_main_log(Path.GetFullPath(settings_dictionary["data_base"].First()), false);
+                    add_to_main_log("в файле [assembly_logs_parser_settings.ini] указан путь ["+ Path.GetFullPath(settings_dictionary["data_base"].First()) + "] в котором отсутствует файл базы данных - data.rtdb");
+                   // add_to_main_log(Path.GetFullPath(settings_dictionary["data_base"].First()), false);
                     no_errors = false;
                 }
 
