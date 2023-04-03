@@ -89,8 +89,8 @@ namespace assembly_logs_parser
         {
             if (load_settings())
             {
-                scan_logs();
-              //  scan_processed_log_files();
+              //  scan_logs();
+                scan_processed_log_files();
             }
             
             //  load_data_base();
@@ -348,10 +348,11 @@ namespace assembly_logs_parser
             string[] processed_log_files_paths = Directory.GetFiles(Path.GetFullPath("assemblylogsparser_temp_folder"));
 
             foreach (string processed_log_file_path in processed_log_files_paths)
-            {              
-
+            {
+                // ID конференции из имени файла, без расширения .txt
+                string conf_id_from_processed_log_file = Path.GetFileName(processed_log_file_path).Split('.')[0];
                 //Создаем папку с номером селектора, в которую будут сохраняться обработанные отдельные конференции
-                string conf_directory_path = "Селектора\\" + Path.GetFileName(processed_log_file_path);
+                string conf_directory_path = "Селектора\\" + conf_id_from_processed_log_file;
                 if (!Directory.Exists(conf_directory_path))
                 {
                     Directory.CreateDirectory(conf_directory_path);
@@ -359,26 +360,44 @@ namespace assembly_logs_parser
 
                 //загружаем файл с определённой конференцией
                 string[] processed_log_file_lines = File.ReadAllLines(processed_log_file_path);
+                string new_conf_file_path = ""; // путь к файлу в который будут писаться все последующий строчки пока не попадётся признак завершения конференции
 
-                foreach (string processed_log_file_line in processed_log_file_lines)
+                foreach (string processed_log_file_line in processed_log_file_lines) // читаем файл построчно
                 {
-                    string new_conf_file_path = ""; // путь к файлу в который будут писаться все последующий строчки пока не попадётся признак завершения конференции
-                    foreach (var item in start_conference)
+                    foreach (var item in start_conference) //проверяем, содержит ли строка один из признаков начала конференции
                     {
-                        //проверяем, содержит ли строка один из признаков начала конференции
-                        if (processed_log_file_line.ToLower().IndexOf(item) >-1)
+                        if (processed_log_file_line.ToLower().IndexOf(item) > -1) // если содержит создаём файл в который будем писать все следующие строчки
                         {
                             new_conf_file_path = "";
-
                             string firstLine = processed_log_file_line.Split(']')[0]; //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
                             firstLine = firstLine.Split('[')[1]; //"L120[04.01.2021 16:58:31-318 -> 04.01.2021 16:58:31-318
                             firstLine = firstLine.Substring(0, firstLine.Length - 4); //04.01.2021 16:58:31
-                            string firstLineForStat = firstLine;
+                                                                                      //     string firstLineForStat = firstLine;
                             firstLine = firstLine.Replace(':', '.'); //04.01.2021 16.58.31
+                            new_conf_file_path = String.Format("{0}\\[{1}] {2}.txt", Path.GetFullPath(conf_directory_path), conf_id_from_processed_log_file, firstLine);
+
                         }
                     }
-                }
+                    if (new_conf_file_path != "")
+                    {
+                        if (File.Exists(new_conf_file_path))
+                        {
+                            File.AppendAllText(new_conf_file_path, processed_log_file_line + "\r\n");
+                        }
+                        else
+                        {
+                            File.AppendAllText(new_conf_file_path, processed_log_file_line + "\r\n");
+                            add_to_main_log(String.Format("создаю файл для сохранения нового селектора [{0}]", new_conf_file_path));
+                        }
 
+                    }
+
+                    //если строчка содержит признак завершения конференции, очищаем путь к файлу записи, для создания нового.
+                    if (processed_log_file_line.ToLower().Contains(stop_conference[0].ToLower()))
+                    {
+                        new_conf_file_path = "";
+                    }
+                }
             }
 
             add_to_main_log("готово", false);
