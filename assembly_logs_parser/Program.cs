@@ -82,13 +82,6 @@ namespace assembly_logs_parser
                     no_errors = false;
                 }
 
-                if (!File.Exists(settings_dictionary["data_base"].First()))
-                {
-                    add_to_main_log("в файле [assembly_logs_parser_settings.ini] указан путь ["+ Path.GetFullPath(settings_dictionary["data_base"].First()) + "] в котором отсутствует файл базы данных - data.rtdb");
-                   // add_to_main_log(Path.GetFullPath(settings_dictionary["data_base"].First()), false);
-                    no_errors = false;
-                }
-
 
             }
             else
@@ -201,6 +194,9 @@ namespace assembly_logs_parser
                         started_conference_line = true;
                       //  valid_line = true;
                     }
+
+                    //L200[05.01.2021 08:57:26-152](ID:01-0208 VSPThread:CONF(1-10))->Conference 1-10 collection requested NP_MAX_CH=52, NP_MAX_DSP=54, duartion=3600 sec
+
                     //====================================================
 
 
@@ -217,12 +213,22 @@ namespace assembly_logs_parser
                         {
                             Directory.CreateDirectory(conf_directory_path);
                         }
-
-                        string start_time_Line = log_file_line.Split(']')[0]; //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
+                        string[] line_temp = log_file_line.Split(']');
+                        string start_time_Line = line_temp[0]; //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"                       
                         start_time_Line = start_time_Line.Split('[')[1]; //" из строки L120[04.01.2021 16:58:31-318 получаем 04.01.2021 16:58:31-318
                         start_time_Line = start_time_Line.Split('-')[0]; //убираем последние 4 символа 04.01.2021 16:58:31
-                                                             //     string firstLineForStat = firstLine;
 
+                        string manager_name = line_temp[1]; //  (ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
+                        if (line_temp[1].Contains("started conference"))
+                        {                            
+                            manager_name = manager_name.Split('>')[1]; // Login disp(1-666) started conference"
+                            manager_name = manager_name.Split('(')[0]; // Login disp
+                            manager_name = manager_name.Split(' ')[1]; //disp
+                            processed_conf_files_paths[conf_id].manager_name = manager_name;
+                        }
+                    
+
+                        
                         processed_conf_files_paths[conf_id].start_time = start_time_Line;
 
                         string start_time_Line_filename = start_time_Line.Replace(':', '.'); //04.01.2021 16.58.31
@@ -287,10 +293,23 @@ namespace assembly_logs_parser
                         if (log_file_line.ToLower().Contains(stop_conference[0].ToLower()))
                         {
                             processed_conf_files_paths[conf_id].pocessed_file_path = "";
+
+                            string stop_time_Line = log_file_line.Split(']')[0]; //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
+                            stop_time_Line = stop_time_Line.Split('[')[1]; //" из строки L120[04.01.2021 16:58:31-318 получаем 04.01.2021 16:58:31-318
+                            stop_time_Line = stop_time_Line.Split('-')[0]; //убираем последние 4 символа 04.01.2021 16:58:31
+                                                                             //     string firstLineForStat = firstLine;
+
+                            processed_conf_files_paths[conf_id].stop_time = stop_time_Line;
+
+                            string start_time_Line_filename = stop_time_Line.Replace(':', '.'); //04.01.2021 16.58.31
+
+                         //   processed_conf_files_paths[conf_id].pocessed_file_path = String.Format("{0}\\[{1}] {2}.txt", Path.GetFullPath(conf_directory_path), conf_id, start_time_Line_filename);
+
                         }
                     }
                 }
             }
+            add_to_main_log("Готово", false);
 
         }
 

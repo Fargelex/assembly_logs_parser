@@ -29,6 +29,11 @@ namespace assembly_logs_parser.classes
             get { return _ID; }
         }
 
+        public string year
+        {
+            get { return _start_time.Year.ToString(); }
+        }
+
         public string pocessed_file_path
         {
             get { return _pocessed_file_path; }
