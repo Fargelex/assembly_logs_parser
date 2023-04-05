@@ -89,8 +89,8 @@ namespace assembly_logs_parser
         {
             if (load_settings())
             {
-              //  scan_logs();
-                scan_processed_log_files();
+                scan_logs();
+             //   scan_processed_log_files();
             }
             
             //  load_data_base();
@@ -227,7 +227,192 @@ namespace assembly_logs_parser
         }
 
 
+        private static List<string> make_logs_files_paths_list()
+        {
+            //=================  формируем список путей до лог файлов [logs_files_paths_list] =======================
+            string logs_files_folder_path = Path.GetFullPath(settings_dictionary["logs_path"].First()); // путь к файлам логов загружем из настроек
+            add_to_main_log("читаю список логов из папки: " + logs_files_folder_path);
+            string[] logs_files_paths_temp = Directory.GetFiles(logs_files_folder_path, "*.log"); // все подряд файлы *.log в директории logs_files_path
+
+            List<string> logs_files_paths_list = new List<string>() { }; // здесь только файлы, попадающеие под маску 20210127_102717.log (таким образом в выборку не попадет файл output.log и любые другие с изменённым именем)
+
+            foreach (string logs_file_path_temp in logs_files_paths_temp) // выбираем только те файлы, имя которых соответствует маске указанной в настройках раздела logs_regex
+            {
+                Regex logs_filename_regex = new Regex(settings_dictionary["logs_regex"].First()); // log filename ex -  20210127_102717.log
+                Match logs_filename_match = logs_filename_regex.Match(Path.GetFileName(logs_file_path_temp));
+                if (logs_filename_match.Success)
+                {
+                    //если имя файла из пути совпадает с маской, то сохраняем весь путь целиком до этого файла
+                    logs_files_paths_list.Add(logs_file_path_temp);
+                }
+            }
+            if (logs_files_paths_list.Count == 0)
+            {
+                add_to_main_log("в папке [" + logs_files_folder_path + "]\r\n отсутствуют файлы название которых соответствует маске [" + settings_dictionary["logs_regex"].First() + "], указанной в файле настроек [assembly_logs_parser_settings.ini]");
+            }
+            else
+                add_to_main_log("загружено [" + logs_files_paths_list.Count + "] файлов <ггггММдд_ччммсс.log>");
+
+            return logs_files_paths_list;
+        }
+
+
         private static void scan_logs()
+        {
+            string[] start_conference = new string[] { "started conference", "run conference" }; // признаки запуска конференции
+            string[] stop_conference = new string[] { "->State: Stop" }; // признаки завершения конференции
+
+            Regex auto_conf_ID_regex = new Regex(@"[Rr]un conference: ClusterId=\d* Id=\d* SchemeId=\d*");
+            // L120[19.02.2021 07:00:00-620](ID:01-0208 VSPThread:CONFPP)->Run conference: ClusterId=1 Id=19820 SchemeId=77
+
+            Regex conf_ID_regex = new Regex(@"VSPThread:CONF\(\d*-\d*");
+            //"VSPThread:CONF(1-203"
+
+            Regex client_seance_ID_fullstring_regex = new Regex(@"->Outgoing seance \d* come in to conference");
+            Regex client_seance_ID_regex = new Regex(@" \d* ");
+
+            Regex snc_ID_regex = new Regex(@"(snc|SNC)=\d*");
+            //VSPThread:CONF(1-77).PARTY(2-0,1283,Мастер бр.№2)->Outgoing seance 755349 come in to conference
+
+            Dictionary<string, string> client_seance_ID_Dictionary = new Dictionary<string, string>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_абонента, ID_конференции>
+
+            int i = 0;
+
+            List<string> logs_files_paths = make_logs_files_paths_list();
+
+            Dictionary<string,conf_class> processed_conf_files_paths = new Dictionary<string, conf_class>();
+
+            
+
+            foreach (string logs_file_path in logs_files_paths) // сканируем каждый лог файл
+            {
+                i++;
+                add_to_main_log(String.Format("сканирую {0} [{1}/{2}]", Path.GetFileName(logs_file_path), i, logs_files_paths.Count));
+                string[] log_file_lines = File.ReadAllLines(logs_file_path);
+
+                foreach (string log_file_line in log_file_lines) // сканируем каждую строчку из лог файла
+                {
+                    string conf_id = "";
+                    bool started_conference_line = false;
+                  //  bool valid_line = false; // строчка прошла проверки и должна быть записана в один из обработанных файлов
+
+                    Match conf_ID_match = conf_ID_regex.Match(log_file_line);
+                    //делим строку  "VSPThread:CONF(1-203" через дефис и сохраняем ID селектора
+                    if (conf_ID_match.Success)
+                    {
+                        conf_id = conf_ID_match.Value.Split('-')[1].Trim();
+                    }
+
+                    //======= строчка содержит признак начала конференции по планировщику
+                    Match auto_conf_ID_match = auto_conf_ID_regex.Match(log_file_line);
+                    if (auto_conf_ID_match.Success)
+                    {
+                        //  L120[19.02.2021 07:00:00-620](ID:01-0208 VSPThread:CONFPP)->Run conference: ClusterId=1 Id=19820 SchemeId=77
+                        // делим по знаку равно, последний элемент массива - номер ID селектора
+                        conf_id = auto_conf_ID_match.Value.Split('=').Last().Trim();                        
+                        started_conference_line = true;
+                    //    valid_line = true;
+                    }
+
+                    if (log_file_line.Contains("started conference"))  //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
+                    {
+                        started_conference_line = true;
+                      //  valid_line = true;
+                    }
+                    //====================================================
+
+
+                    if (started_conference_line)
+                    {
+                        if (!processed_conf_files_paths.ContainsKey(conf_id)) // если в словаре нет ID стартовавшей конференции то добавляем
+                        {
+                            conf_class new_conf = new conf_class(conf_id);
+                            processed_conf_files_paths.Add(conf_id, new_conf);
+                        }
+
+                        string conf_directory_path = "Селектора\\" + conf_id;
+                        if (!Directory.Exists(conf_directory_path))
+                        {
+                            Directory.CreateDirectory(conf_directory_path);
+                        }
+
+                        string start_time_Line = log_file_line.Split(']')[0]; //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
+                        start_time_Line = start_time_Line.Split('[')[1]; //" из строки L120[04.01.2021 16:58:31-318 получаем 04.01.2021 16:58:31-318
+                        start_time_Line = start_time_Line.Split('-')[0]; //убираем последние 4 символа 04.01.2021 16:58:31
+                                                             //     string firstLineForStat = firstLine;
+
+                        processed_conf_files_paths[conf_id].start_time = start_time_Line;
+
+                        string start_time_Line_filename = start_time_Line.Replace(':', '.'); //04.01.2021 16.58.31
+
+                        processed_conf_files_paths[conf_id].pocessed_file_path = String.Format("{0}\\[{1}] {2}.txt", Path.GetFullPath(conf_directory_path), conf_id, start_time_Line_filename);
+                    }
+
+                   
+                   // если строчка содержит ID сеанса абонента, который подключился к конференции
+                    Match client_seance_ID_match = client_seance_ID_fullstring_regex.Match(log_file_line);
+                    //VSPThread:CONF(1-77).PARTY(11-0,2973,ФИО)->Outgoing seance 755411 come in to conference
+                    if (client_seance_ID_match.Success)
+                    {
+                        // <из строчки Outgoing seance 755411 come in to conference> берём только ID сеанса
+                        Match client_seance_ID_match_ = client_seance_ID_regex.Match(client_seance_ID_match.Value);
+                        if (client_seance_ID_match_.Success)
+                        {
+                            //' 755411 '
+                            if (!client_seance_ID_Dictionary.ContainsKey(client_seance_ID_match_.Value))
+                            {
+                                client_seance_ID_Dictionary.Add(client_seance_ID_match_.Value.Trim(), conf_id);
+                            }
+                            else
+                            {
+                                add_to_main_log(String.Format("Дублируется номер <{0}> сеанса в словаре активных сеансов абонента. Строка вызывающая ошибку: {1}", client_seance_ID_match_.Value, log_file_line));
+                            }
+                        }
+                    }
+
+                    Match snc_ID_match = snc_ID_regex.Match(log_file_line);
+                    //строка содержит активность сеанса абонента SNC=3439821 или snc=3439821
+                    if (snc_ID_match.Success)
+                    {
+                        // если ID сеанса есть в словаре, то получаем соответствующий ему ID селектора и эта строчка тоже попадёт в выборку
+                        string clean_snc_id = snc_ID_match.Value.Split('=')[1]; // убираем из value лишнее 'SNC='
+                        if (client_seance_ID_Dictionary.ContainsKey(clean_snc_id))
+                        {
+                            conf_id = client_seance_ID_Dictionary[clean_snc_id];
+                        }
+                    }
+
+
+                    if (processed_conf_files_paths.ContainsKey(conf_id))
+                    {          
+
+                        //   string temp_conf_id_file = Path.GetFullPath("assemblylogsparser_temp_folder") + "\\" + conf_id + ".txt";
+                      //  File.AppendAllText(processed_conf_files_paths[conf_id].pocessed_file_path, log_file_line + "\r\n");
+
+                        if (processed_conf_files_paths[conf_id].pocessed_file_path != "")
+                        {
+                            if (File.Exists(processed_conf_files_paths[conf_id].pocessed_file_path))
+                            {
+                                File.AppendAllText(processed_conf_files_paths[conf_id].pocessed_file_path, log_file_line + "\r\n");
+                            }
+                            else
+                            {
+                                File.AppendAllText(processed_conf_files_paths[conf_id].pocessed_file_path, log_file_line + "\r\n");
+                                add_to_main_log(String.Format("создаю файл для сохранения нового селектора [{0}]", processed_conf_files_paths[conf_id].pocessed_file_path));
+                            }
+                        }
+                        //если строчка содержит признак завершения конференции, очищаем путь к файлу записи, для создания нового.
+                        if (log_file_line.ToLower().Contains(stop_conference[0].ToLower()))
+                        {
+                            processed_conf_files_paths[conf_id].pocessed_file_path = "";
+                        }
+                    }
+                }
+            }
+
+        }
+
+        private static void scan_logs_only()
         {           
             //=================  формируем список лог файлов для обработки [assembly_logs_files_paths] =======================
             string logs_files_path = Path.GetFullPath(settings_dictionary["logs_path"].First()); // путь к файлам логов загружем из настроек
@@ -339,6 +524,9 @@ namespace assembly_logs_parser
             
         }
 
+
+        
+
         private static void scan_processed_log_files()
         {
             string[] start_conference = new string[] { "started conference", "run conference" }; // признаки запуска конференции
@@ -391,7 +579,6 @@ namespace assembly_logs_parser
                         }
 
                     }
-
                     //если строчка содержит признак завершения конференции, очищаем путь к файлу записи, для создания нового.
                     if (processed_log_file_line.ToLower().Contains(stop_conference[0].ToLower()))
                     {
