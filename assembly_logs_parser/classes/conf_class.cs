@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -12,20 +13,32 @@ namespace assembly_logs_parser.classes
         private int _ID; // уникальный ID селектора
         private string _pocessed_file_path; // путь в который сохранять строчки лога
         private DateTime _start_time; // время начала сектора
-        private DateTime _stop_time; //время завершения селектора
+        private DateTime _stop_time = new DateTime(1990, 01, 01, 00, 00, 00); //время завершения селектора
         private string _manager_name = "Планировщик";
 
-        private int _real_duration; // фактическая продолжительность
+        private TimeSpan _real_duration; // фактическая продолжительность
         private int _real_participants_count; // фактическое кол-во участников
-        private int _seted_duration; // заданная продолжительность
+        private TimeSpan _seted_duration; // заданная продолжительность
         private int _seted_participants_count; // заданное кол-во участников  (NP_MAX_CH)
         private int _seted_can_speak_participants_count; // могут говорить (NP_MAX_DSP)
+
+        private string _error_discription ="";
+        private bool _is_error = false;
 
         public conf_class(string cnf_ID)
         {
             _ID = Convert.ToInt32(cnf_ID);
         }
 
+        public bool is_error
+        {
+            get { return _is_error; }
+        }
+
+        public string error_discription
+        {
+            get { return _error_discription; }
+        }
 
         public int ID
         {
@@ -58,21 +71,54 @@ namespace assembly_logs_parser.classes
         public string stop_time
         {
             get { return _stop_time.ToString("HH.mm.ss"); }
-            set { _stop_time = Convert.ToDateTime(value); }
+            set
+            {
+                _stop_time = Convert.ToDateTime(value);
+                if (_stop_time > _start_time)
+                {
+                    _real_duration = _stop_time - _start_time;
+                }
+            }
         }
 
+        public bool check_start_time(string check_date)
+        {
+            DateTime vl = Convert.ToDateTime(check_date);
+
+            if (vl == _start_time)
+            {
+                return true;
+            }
+            else
+                return false;
+        }
 
         public string save_seted_params
         {
             set 
             {
-                //  (ID:01-0208 VSPThread:CONF(1-64))->Conference 1-64 collection requested NP_MAX_CH=29, NP_MAX_DSP=31, duartion=5400 sec
-                string[] conf_params_line = value.Split(' ');
-                _seted_participants_count = Convert.ToInt32(conf_params_line[5].Split('=')[1].Replace(',', ' ').Trim());                 //[5] NP_MAX_CH=29,
-                _seted_can_speak_participants_count = Convert.ToInt32(conf_params_line[6].Split('=')[1].Replace(',', ' ').Trim());         //[6] NP_MAX_DSP=31,
-                _seted_duration = Convert.ToInt32(conf_params_line[7].Split('=')[1].Split(' ')[0]) / 60;   //[7] duartion=5400 sec
+                try
+                {
+                    _is_error = false;
+                    _error_discription = "";
+                    //  (ID:01-0208 VSPThread:CONF(1-64))->Conference 1-64 collection requested NP_MAX_CH=29, NP_MAX_DSP=31, duartion=5400 sec
+                    string[] conf_params_line = value.Split(' ');
+                    _seted_can_speak_participants_count = Convert.ToInt32(conf_params_line[5].Split('=')[1].Replace(',', ' ').Trim());         //[5] NP_MAX_CH=29, 
+                    _seted_participants_count = Convert.ToInt32(conf_params_line[6].Split('=')[1].Replace(',', ' ').Trim());                //[6] NP_MAX_DSP=31,
+
+                    _seted_duration = TimeSpan.FromSeconds(Convert.ToDouble(conf_params_line[7].Split('=')[1].Split(' ')[0]));   //[7] duartion=5400 sec
+                }
+                catch (Exception ex)
+                {
+                    _is_error = true;
+                    _error_discription = String.Format("Ошибка при обработке строки [{0}] | Ошибка [{1}]", value, ex.Message);
+                 //   throw;
+                }
+               
             }
         }
+
+
 
         public string seted_participants_count
         {

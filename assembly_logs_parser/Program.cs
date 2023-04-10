@@ -147,8 +147,10 @@ namespace assembly_logs_parser
             Regex client_seance_ID_regex = new Regex(@" \d* ");
 
             Regex snc_ID_regex = new Regex(@"(snc|SNC)=\d*");
-            //VSPThread:CONF(1-77).PARTY(2-0,1283,Мастер бр.№2)->Outgoing seance 755349 come in to conference
-            Dictionary<string, string> client_seance_ID_Dictionary = new Dictionary<string, string>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_абонента, ID_конференции>
+            //VSPThread:CONF(1-77).PARTY(2-0,1283,ФИО)->Outgoing seance 755349 come in to conference
+
+            Dictionary<string, string> client_seance_ID_Dictionary = new Dictionary<string, string>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_сеанса, ID_конференции>
+            Dictionary<string, string> client_ID_Dictionary = new Dictionary<string, string>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_сеанса, ID_конференции>
 
 
             int i = 0;
@@ -193,7 +195,7 @@ namespace assembly_logs_parser
                     if (log_file_line.Contains("identified by phone=")) 
                     {
                         Regex conf_ID_started_by_phone_regex = new Regex(@"conference id=\d*");
-                        Match conf_ID_started_by_phone_match = conf_ID_started_by_phone_regex.Match(log_file_line.ToLower()); //строчка содержит признак начала конференции по планировщику
+                        Match conf_ID_started_by_phone_match = conf_ID_started_by_phone_regex.Match(log_file_line.ToLower()); //строчка содержит признак начала конференции по телефону
                         if (conf_ID_started_by_phone_match.Success)
                         {
                             conf_id = conf_ID_started_by_phone_match.Value.Split('=')[1].Trim();
@@ -201,14 +203,14 @@ namespace assembly_logs_parser
                         started_conference_line = true;
                     }
 
-
+                    //строчка содержит признак начала конференции в ручную администратором
                     if (log_file_line.Contains("started conference"))  //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
                     {
                         started_conference_line = true;
                       //  valid_line = true;
                     }
 
-                                    
+
 
 
                     if (started_conference_line)
@@ -231,7 +233,7 @@ namespace assembly_logs_parser
 
                         string manager_name = line_temp[1]; //  (ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
                         if (line_temp[1].Contains("started conference"))
-                        {                            
+                        {
                             manager_name = manager_name.Split('>')[1]; // Login disp(1-666) started conference"
                             manager_name = manager_name.Split('(')[0]; // Login disp
                             manager_name = manager_name.Split(' ')[1]; //disp
@@ -242,7 +244,7 @@ namespace assembly_logs_parser
                         if (line_temp[1].Contains("identified by phone="))
                         {
                             Regex conf_started_by_phone_regex = new Regex(@"identified by phone=\d*");
-                            Match conf_started_by_phone_match = conf_started_by_phone_regex.Match(log_file_line.ToLower()); //строчка содержит признак начала конференции по планировщику
+                            Match conf_started_by_phone_match = conf_started_by_phone_regex.Match(log_file_line.ToLower()); //строчка содержит признак начала конференции по телефону
                             if (conf_started_by_phone_match.Success)
                             {
                                 processed_conf_files_paths[conf_id].manager_name = conf_started_by_phone_match.Value.Split('=')[1];
@@ -251,7 +253,7 @@ namespace assembly_logs_parser
 
 
 
-                            processed_conf_files_paths[conf_id].start_time = start_time_Line;
+                        processed_conf_files_paths[conf_id].start_time = start_time_Line;
 
                         string start_time_Line_filename = start_time_Line.Replace(':', '.'); //04.01.2021 16.58.31
 
@@ -264,6 +266,8 @@ namespace assembly_logs_parser
                     //VSPThread:CONF(1-77).PARTY(11-0,2973,ФИО)->Outgoing seance 755411 come in to conference
                     if (client_seance_ID_match.Success)
                     {
+                        // Сохранить ID сеанса, ID абонента и его имя в классе Subscriber
+
                         // <из строчки Outgoing seance 755411 come in to conference> берём только ID сеанса
                         Match client_seance_ID_match_ = client_seance_ID_regex.Match(client_seance_ID_match.Value);
                         if (client_seance_ID_match_.Success)
@@ -321,7 +325,6 @@ namespace assembly_logs_parser
                             string stop_time_Line = log_file_line.Split(']')[0]; //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
                             stop_time_Line = stop_time_Line.Split('[')[1]; //" из строки L120[04.01.2021 16:58:31-318 получаем 04.01.2021 16:58:31-318
                             stop_time_Line = stop_time_Line.Split('-')[0]; //убираем последние 4 символа 04.01.2021 16:58:31
-                                                                             //     string firstLineForStat = firstLine;
 
                             processed_conf_files_paths[conf_id].stop_time = stop_time_Line;
 
@@ -339,9 +342,18 @@ namespace assembly_logs_parser
                             start_time_Line = start_time_Line.Split('[')[1]; //" из строки L120[04.01.2021 16:58:31-318 получаем 04.01.2021 16:58:31-318
                             start_time_Line = start_time_Line.Split('-')[0]; //убираем последние 4 символа 04.01.2021 16:58:31
 
-                            string conf_params_line = line_temp_2[1]; //  (ID:01-0208 VSPThread:CONF(1-64))->Conference 1-64 collection requested NP_MAX_CH=29, NP_MAX_DSP=31, duartion=5400 sec
-                            conf_params_line = conf_params_line.Split(' ')[1];
-                            processed_conf_files_paths[conf_id].save_seted_params = conf_params_line;
+                            // время строки с параметрами должно быть равно времени старта конференции, это будет означать что эти параметры пренадлежат именно этому селектору
+                            if (processed_conf_files_paths[conf_id].check_start_time(start_time_Line))
+                            {
+                                string conf_params_line = line_temp_2[1]; //  (ID:01-0208 VSPThread:CONF(1-64))->Conference 1-64 collection requested NP_MAX_CH=29, NP_MAX_DSP=31, duartion=5400 sec
+                                //conf_params_line = conf_params_line.Split(' ')[1];
+                                processed_conf_files_paths[conf_id].save_seted_params = conf_params_line;
+                                if (processed_conf_files_paths[conf_id].is_error)
+                                {
+                                    add_to_main_log(processed_conf_files_paths[conf_id].error_discription);
+                                }
+                            }
+                            
                         }
 
                     }

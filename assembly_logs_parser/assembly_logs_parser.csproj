@@ -46,6 +46,7 @@
     <Compile Include="classes\conference.cs" />
     <Compile Include="classes\conference_plan.cs" />
     <Compile Include="classes\conf_class.cs" />
+    <Compile Include="classes\Subscriber.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
