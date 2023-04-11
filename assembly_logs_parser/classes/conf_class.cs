@@ -27,7 +27,29 @@ namespace assembly_logs_parser.classes
 
         public conf_class(string cnf_ID)
         {
-            _ID = Convert.ToInt32(cnf_ID);
+            try
+            {
+                _is_error = false;
+                _ID = Convert.ToInt32(cnf_ID);
+            }
+            catch (Exception ex)
+            {
+                _is_error = true;
+                _error_discription = String.Format("В конструктор conf_class должен быть передан ID селектора (string с числом) для Convert.ToInt32, а передано [{0}] | сообщение об ошибке [{1}]", cnf_ID, ex.Message);
+             //   throw;
+            }
+          
+        }
+
+        public TimeSpan real_duration
+        {
+            get { return _real_duration; }
+        }
+
+        public int real_participants_count
+        {
+            get { return _real_participants_count; }
+            set { _real_participants_count = value; }
         }
 
         public bool is_error

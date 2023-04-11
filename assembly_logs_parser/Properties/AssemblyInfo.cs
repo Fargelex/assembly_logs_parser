@@ -6,8 +6,8 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("assembly_logs_parser")]
-[assembly: AssemblyDescription("Автоматическая обработка лог-файлов ПК Ассамблея")]
+[assembly: AssemblyTitle("Автоматическая обработка лог-файлов ПК Ассамблея")]
+[assembly: AssemblyDescription("assembly_logs_parser")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("ПАО Сургутнефтегаз")]
 [assembly: AssemblyProduct("Удостоверение на рацпредложение №320 от 20.02.2021")]

@@ -150,7 +150,7 @@ namespace assembly_logs_parser
             //VSPThread:CONF(1-77).PARTY(2-0,1283,ФИО)->Outgoing seance 755349 come in to conference
 
             Dictionary<string, string> client_seance_ID_Dictionary = new Dictionary<string, string>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_сеанса, ID_конференции>
-            Dictionary<string, string> client_ID_Dictionary = new Dictionary<string, string>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_сеанса, ID_конференции>
+            Dictionary<string, List<Subscriber>> client_ID_Dictionary = new Dictionary<string, List<Subscriber>>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_сеанса, ID_конференции>
 
 
             int i = 0;
@@ -204,7 +204,7 @@ namespace assembly_logs_parser
                     }
 
                     //строчка содержит признак начала конференции в ручную администратором
-                    if (log_file_line.Contains("started conference"))  //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
+                    if (log_file_line.Contains("Login") && log_file_line.Contains("started conference"))  //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
                     {
                         started_conference_line = true;
                       //  valid_line = true;
@@ -218,7 +218,17 @@ namespace assembly_logs_parser
                         if (!processed_conf_files_paths.ContainsKey(conf_id)) // если в словаре нет ID стартовавшей конференции то добавляем
                         {
                             conf_class new_conf = new conf_class(conf_id);
-                            processed_conf_files_paths.Add(conf_id, new_conf);
+                            if (new_conf.is_error)
+                            {
+                                add_to_main_log(new_conf.error_discription);
+                                add_to_main_log("Строка в которой возникла ошибка: " + log_file_line);
+                            }
+                            else
+                            {
+                                processed_conf_files_paths.Add(conf_id, new_conf);
+                            }
+
+                            
                         }
 
                         string conf_directory_path = "Селектора\\" + conf_id;
@@ -266,7 +276,17 @@ namespace assembly_logs_parser
                     //VSPThread:CONF(1-77).PARTY(11-0,2973,ФИО)->Outgoing seance 755411 come in to conference
                     if (client_seance_ID_match.Success)
                     {
-                        // Сохранить ID сеанса, ID абонента и его имя в классе Subscriber
+                        Subscriber new_subscriber = new Subscriber();
+                        // Сохранить ID сеанса и ID абонента в классе Subscriber
+                        Regex id_subscriber_regex = new Regex(@"PARTY\(\d*\-\d*\,\d*\,");
+                        Match id_subscriber_match = id_subscriber_regex.Match(log_file_line);
+                        if (id_subscriber_match.Success) // PARTY(11-0,2973,
+                        {
+                            string subscriber_id = id_subscriber_match.Value.Replace(',', ' ').Trim(); // PARTY(11-0 2973
+                            subscriber_id = subscriber_id.Split(' ')[1];
+
+                            new_subscriber.SubscriberId = Convert.ToInt32(subscriber_id);
+                        }
 
                         // <из строчки Outgoing seance 755411 come in to conference> берём только ID сеанса
                         Match client_seance_ID_match_ = client_seance_ID_regex.Match(client_seance_ID_match.Value);
@@ -275,6 +295,20 @@ namespace assembly_logs_parser
                             //' 755411 '
                             if (!client_seance_ID_Dictionary.ContainsKey(client_seance_ID_match_.Value))
                             {
+                                new_subscriber.SeanceId = Convert.ToInt32(client_seance_ID_match_.Value.Trim());
+                                if (!client_ID_Dictionary.ContainsKey(conf_id))
+                                {
+                                    client_ID_Dictionary.Add(conf_id, new List<Subscriber> { });
+                                }
+                                if (!client_ID_Dictionary[conf_id].Exists(x => x.SubscriberId == new_subscriber.SubscriberId))
+                                {
+                                    client_ID_Dictionary[conf_id].Add(new_subscriber);
+                                }
+                                else
+                                {
+                                    add_to_main_log(String.Format("абонент {0} повторно подключается к конференции {1} Строка [{2}]", new_subscriber.SubscriberId, conf_id, log_file_line));
+                                }
+                                
                                 client_seance_ID_Dictionary.Add(client_seance_ID_match_.Value.Trim(), conf_id);
                             }
                             else
@@ -330,7 +364,13 @@ namespace assembly_logs_parser
 
                             string start_time_Line_filename = stop_time_Line.Replace(':', '.'); //04.01.2021 16.58.31
 
-                         //   processed_conf_files_paths[conf_id].pocessed_file_path = String.Format("{0}\\[{1}] {2}.txt", Path.GetFullPath(conf_directory_path), conf_id, start_time_Line_filename);
+                            processed_conf_files_paths[conf_id].real_participants_count = client_ID_Dictionary[conf_id].Count;
+                            client_ID_Dictionary[conf_id] = new List<Subscriber> { };
+
+                         //   client_ID_Dictionary[conf_id].;
+
+
+                            //   processed_conf_files_paths[conf_id].pocessed_file_path = String.Format("{0}\\[{1}] {2}.txt", Path.GetFullPath(conf_directory_path), conf_id, start_time_Line_filename);
 
                         }
 
