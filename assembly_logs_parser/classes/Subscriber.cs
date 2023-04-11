@@ -14,6 +14,14 @@ namespace assembly_logs_parser.classes
         public int SubscriberId { get; set; }
         public int SeanceId { get; set; }
 
+        public List<string> log_line { get; set; }
+
+
+        public Subscriber()
+        {
+            log_line = new List<string> { };
+        }
+
         public override bool Equals(object obj)
         {
             if (obj == null) return false;

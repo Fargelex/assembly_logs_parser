@@ -296,6 +296,7 @@ namespace assembly_logs_parser
                             if (!client_seance_ID_Dictionary.ContainsKey(client_seance_ID_match_.Value))
                             {
                                 new_subscriber.SeanceId = Convert.ToInt32(client_seance_ID_match_.Value.Trim());
+                                new_subscriber.log_line.Add(log_file_line);
                                 if (!client_ID_Dictionary.ContainsKey(conf_id))
                                 {
                                     client_ID_Dictionary.Add(conf_id, new List<Subscriber> { });
