@@ -150,7 +150,7 @@ namespace assembly_logs_parser
             //VSPThread:CONF(1-77).PARTY(2-0,1283,ФИО)->Outgoing seance 755349 come in to conference
 
             Dictionary<string, string> client_seance_ID_Dictionary = new Dictionary<string, string>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_сеанса, ID_конференции>
-            Dictionary<string, List<Subscriber>> client_ID_Dictionary = new Dictionary<string, List<Subscriber>>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_сеанса, ID_конференции>
+            Dictionary<string, Dictionary<int, Subscriber>>  client_ID_Dictionary = new Dictionary<string, Dictionary<int, Subscriber>>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_сеанса, ID_конференции>
 
 
             int i = 0;
@@ -299,15 +299,17 @@ namespace assembly_logs_parser
                                 new_subscriber.log_line.Add(log_file_line);
                                 if (!client_ID_Dictionary.ContainsKey(conf_id))
                                 {
-                                    client_ID_Dictionary.Add(conf_id, new List<Subscriber> { });
+                                    client_ID_Dictionary.Add(conf_id, new Dictionary<int, Subscriber> { });
                                 }
-                                if (!client_ID_Dictionary[conf_id].Exists(x => x.SubscriberId == new_subscriber.SubscriberId))
+
+                                if (!client_ID_Dictionary[conf_id].ContainsKey(new_subscriber.SubscriberId))
                                 {
-                                    client_ID_Dictionary[conf_id].Add(new_subscriber);
+                                    client_ID_Dictionary[conf_id].Add(new_subscriber.SubscriberId, new_subscriber);
                                 }
                                 else
                                 {
                                     add_to_main_log(String.Format("абонент {0} повторно подключается к конференции {1} Строка [{2}]", new_subscriber.SubscriberId, conf_id, log_file_line));
+                                    client_ID_Dictionary[conf_id][new_subscriber.SubscriberId].log_line.Add(log_file_line);
                                 }
                                 
                                 client_seance_ID_Dictionary.Add(client_seance_ID_match_.Value.Trim(), conf_id);
@@ -366,7 +368,21 @@ namespace assembly_logs_parser
                             string start_time_Line_filename = stop_time_Line.Replace(':', '.'); //04.01.2021 16.58.31
 
                             processed_conf_files_paths[conf_id].real_participants_count = client_ID_Dictionary[conf_id].Count;
-                            client_ID_Dictionary[conf_id] = new List<Subscriber> { };
+                            string year_statistic_file_path = Path.GetFullPath(processed_conf_files_paths[conf_id].year + ".txt");
+                            if (!File.Exists(year_statistic_file_path))
+                            {
+                                File.AppendAllText(processed_conf_files_paths[conf_id].year + ".txt", "Запуск\tЗавершение\tID селектора\tЗапустил\tФактическая продолжительность\tЗаданная продолжительность\tФактическое кол-во участников\tЗаданное кол-во участников\r\n");
+                            }
+                            File.AppendAllText(processed_conf_files_paths[conf_id].year + ".txt", String.Format("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\r\n", 
+                                processed_conf_files_paths[conf_id].start_time, 
+                                processed_conf_files_paths[conf_id].stop_time,
+                                processed_conf_files_paths[conf_id].ID,
+                                processed_conf_files_paths[conf_id].manager_name,
+                                processed_conf_files_paths[conf_id].real_duration,
+                                processed_conf_files_paths[conf_id].seted_duration,
+                                processed_conf_files_paths[conf_id].real_participants_count,
+                                processed_conf_files_paths[conf_id].seted_participants_count));
+                            client_ID_Dictionary[conf_id] = new Dictionary<int, Subscriber> { };
 
                          //   client_ID_Dictionary[conf_id].;
 
