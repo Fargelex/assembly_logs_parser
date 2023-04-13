@@ -132,6 +132,15 @@ namespace assembly_logs_parser
         }
 
 
+        private static string get_time_from_log_line(string full_string)
+        {
+            string[] line_temp = full_string.Split(']');
+            string time_string = line_temp[0]; //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"                       
+            time_string = time_string.Split('[')[1]; //" из строки L120[04.01.2021 16:58:31-318 получаем 04.01.2021 16:58:31-318
+            time_string = time_string.Split('-')[0]; //убираем последние 4 символа 04.01.2021 16:58:31
+            return time_string;            
+        }
+
         private static void scan_logs()
         {
          //   string[] start_conference = new string[] { "started conference", "run conference" }; // признаки запуска конференции
@@ -237,9 +246,7 @@ namespace assembly_logs_parser
                             Directory.CreateDirectory(conf_directory_path);
                         }
                         string[] line_temp = log_file_line.Split(']');
-                        string start_time_Line = line_temp[0]; //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"                       
-                        start_time_Line = start_time_Line.Split('[')[1]; //" из строки L120[04.01.2021 16:58:31-318 получаем 04.01.2021 16:58:31-318
-                        start_time_Line = start_time_Line.Split('-')[0]; //убираем последние 4 символа 04.01.2021 16:58:31
+                        string start_time_Line = get_time_from_log_line(log_file_line);
 
                         string manager_name = line_temp[1]; //  (ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
                         if (line_temp[1].Contains("started conference"))
@@ -355,17 +362,32 @@ namespace assembly_logs_parser
                             }
                         }
                         //если строчка содержит признак завершения конференции, очищаем путь к файлу записи, для создания нового.
+                        /*
+                         Завершение Планировщиком
+                         L120[01.03.2023 08:29:30-367](ID:01-0208 VSPThread:CONFPP)->Conference ClusterId=1 Id=77512 SchemeId=140 will stop after 30 sec
+                         L200[01.03.2023 08:29:30-367](ID:01-0208 VSPThread:CONF(1-140))->State: Stop
+
+
+                        Введеен код завершения
+                        L200[01.03.2023 08:21:42-772](ID:01-0208 VSPThread:CONF(1-391).PARTY(1-0,874,Крылов А.В.))->DTMF: Conf stop signal
+                        L200[01.03.2023 08:21:42-772](ID:01-0208 VSPThread:CONF(1-391).PARTY(1-0,874,Крылов А.В.))->Stoping conference: Executing...
+                        L200[01.03.2023 08:21:42-772](ID:01-0208 VSPThread:CONF(1-391))->State: Stop
+
+                        Остановил Супервизор
+                        L120[01.03.2023 12:11:50-436](ID:01-0208 VSPThread:CONF(1-83))->Login Karkachev(1-10340) stoped conference
+                        L200[01.03.2023 12:11:50-436](ID:01-0208 VSPThread:CONF(1-83))->State: Stop
+                         */
+
+
                         if (log_file_line.ToLower().Contains(stop_conference[0].ToLower()))
                         {
                             processed_conf_files_paths[conf_id].pocessed_file_path = "";
 
-                            string stop_time_Line = log_file_line.Split(']')[0]; //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
-                            stop_time_Line = stop_time_Line.Split('[')[1]; //" из строки L120[04.01.2021 16:58:31-318 получаем 04.01.2021 16:58:31-318
-                            stop_time_Line = stop_time_Line.Split('-')[0]; //убираем последние 4 символа 04.01.2021 16:58:31
+                            string stop_time_Line =  get_time_from_log_line(log_file_line);
 
                             processed_conf_files_paths[conf_id].stop_time = stop_time_Line;
 
-                            string start_time_Line_filename = stop_time_Line.Replace(':', '.'); //04.01.2021 16.58.31
+                          //  string start_time_Line_filename = stop_time_Line.Replace(':', '.'); //04.01.2021 16.58.31
 
                             processed_conf_files_paths[conf_id].real_participants_count = client_ID_Dictionary[conf_id].Count;
                             string year_statistic_file_path = Path.GetFullPath(processed_conf_files_paths[conf_id].year + ".txt");
