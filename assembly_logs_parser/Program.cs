@@ -21,11 +21,11 @@ namespace assembly_logs_parser
             if (load_settings())
             {
                 scan_logs();
-             //   scan_processed_log_files();
+                //   scan_processed_log_files();
             }
-            
+
             //  load_data_base();
-            
+
             Console.ReadKey();
         }
 
@@ -47,16 +47,22 @@ namespace assembly_logs_parser
                 add_to_main_log("создаю папку 'Селектора' в " + Path.GetFullPath("Селектора"));
                 Directory.CreateDirectory("Селектора");
             }
+            if (!Directory.Exists("Статистика")) // папка в которую будет сохраняться общая Статистика по конференциям за год
+            {
+                add_to_main_log("создаю папку 'Статистика' в " + Path.GetFullPath("Статистика"));
+                Directory.CreateDirectory("Статистика");
+            }
+            
             if (!Directory.Exists("assemblylogsparser_temp_folder")) // папка в которую будет сохраняться рабочая инфа программы
             {
                 add_to_main_log("создаю папку 'assemblylogsparser_temp_folder' в " + Path.GetFullPath("assemblylogsparser_temp_folder"));
                 Directory.CreateDirectory("assemblylogsparser_temp_folder");
-                
+
                 add_to_main_log("создаю файл 'processed_log_files.txt' в " + processed_log_files, false);
                 File.AppendAllText(processed_log_files, "# logs файлы ассамблеи, которые были обработаны программой" + "\r\n");
             }
 
-           // List<string> fields_list = new List<string> { };
+            // List<string> fields_list = new List<string> { };
             if (File.Exists("assembly_logs_parser_settings.ini"))
             {
                 string[] settings_file_lines = File.ReadAllLines("assembly_logs_parser_settings.ini");
@@ -131,19 +137,18 @@ namespace assembly_logs_parser
             return logs_files_paths_list;
         }
 
-
         private static string get_time_from_log_line(string full_string)
         {
             string[] line_temp = full_string.Split(']');
             string time_string = line_temp[0]; //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"                       
             time_string = time_string.Split('[')[1]; //" из строки L120[04.01.2021 16:58:31-318 получаем 04.01.2021 16:58:31-318
             time_string = time_string.Split('-')[0]; //убираем последние 4 символа 04.01.2021 16:58:31
-            return time_string;            
+            return time_string;
         }
 
         private static void scan_logs()
         {
-         //   string[] start_conference = new string[] { "started conference", "run conference" }; // признаки запуска конференции
+            //   string[] start_conference = new string[] { "started conference", "run conference" }; // признаки запуска конференции
             string[] stop_conference = new string[] { "->State: Stop" }; // признаки завершения конференции
 
             Regex auto_conf_ID_regex = new Regex(@"[Rr]un conference: ClusterId=\d* Id=\d* SchemeId=\d*");  // признаки запуска конференции
@@ -159,16 +164,16 @@ namespace assembly_logs_parser
             //VSPThread:CONF(1-77).PARTY(2-0,1283,ФИО)->Outgoing seance 755349 come in to conference
 
             Dictionary<string, string> client_seance_ID_Dictionary = new Dictionary<string, string>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_сеанса, ID_конференции>
-            Dictionary<string, Dictionary<int, Subscriber>>  client_ID_Dictionary = new Dictionary<string, Dictionary<int, Subscriber>>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_сеанса, ID_конференции>
+            Dictionary<string, Dictionary<int, Subscriber>> client_ID_Dictionary = new Dictionary<string, Dictionary<int, Subscriber>>(); // при подключении к конференции абоненту присваивается уникальный ID для этой конференции, словарь сохраняет соответствие <ID_сеанса, ID_конференции>
 
 
             int i = 0;
 
             List<string> logs_files_paths = make_logs_files_paths_list();
 
-            Dictionary<string,conf_class> processed_conf_files_paths = new Dictionary<string, conf_class>();
+            Dictionary<string, conf_class> processed_conf_files_paths = new Dictionary<string, conf_class>();
 
-            
+
 
             foreach (string logs_file_path in logs_files_paths) // сканируем каждый лог файл
             {
@@ -180,7 +185,9 @@ namespace assembly_logs_parser
                 {
                     string conf_id = "";
                     bool started_conference_line = false;
-                  //  bool valid_line = false; // строчка прошла проверки и должна быть записана в один из обработанных файлов
+                    Subscriber new_subscriber = new Subscriber();
+
+                    //  bool valid_line = false; // строчка прошла проверки и должна быть записана в один из обработанных файлов
 
                     Match conf_ID_match = conf_ID_regex.Match(log_file_line);
                     //делим строку  "VSPThread:CONF(1-203" через дефис и сохраняем ID селектора
@@ -195,13 +202,13 @@ namespace assembly_logs_parser
                     {
                         //  L120[19.02.2021 07:00:00-620](ID:01-0208 VSPThread:CONFPP)->Run conference: ClusterId=1 Id=19820 SchemeId=77
                         // делим по знаку равно, последний элемент массива - номер ID селектора
-                        conf_id = auto_conf_ID_match.Value.Split('=').Last().Trim();                        
+                        conf_id = auto_conf_ID_match.Value.Split('=').Last().Trim();
                         started_conference_line = true;
-                    //    valid_line = true;
+                        //    valid_line = true;
                     }
 
                     //L200[01.03.2023 00:00:47-681](ID:01-0208 VSPThread:CDISP)->SNC(3365447-1). Party ID=27 (Subscriber ID=4138) of conference ID=402 identified by phone=431760@10.8.5.18
-                    if (log_file_line.Contains("identified by phone=")) 
+                    if (log_file_line.Contains("identified by phone="))
                     {
                         Regex conf_ID_started_by_phone_regex = new Regex(@"conference id=\d*");
                         Match conf_ID_started_by_phone_match = conf_ID_started_by_phone_regex.Match(log_file_line.ToLower()); //строчка содержит признак начала конференции по телефону
@@ -216,7 +223,7 @@ namespace assembly_logs_parser
                     if (log_file_line.Contains("Login") && log_file_line.Contains("started conference"))  //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
                     {
                         started_conference_line = true;
-                      //  valid_line = true;
+                        //  valid_line = true;
                     }
 
 
@@ -237,7 +244,7 @@ namespace assembly_logs_parser
                                 processed_conf_files_paths.Add(conf_id, new_conf);
                             }
 
-                            
+
                         }
 
                         string conf_directory_path = "Селектора\\" + conf_id;
@@ -266,6 +273,30 @@ namespace assembly_logs_parser
                             {
                                 processed_conf_files_paths[conf_id].manager_name = conf_started_by_phone_match.Value.Split('=')[1];
                             }
+
+                            string subs_id = line_temp[1].Split(')')[2]; // . Party ID=27 (Subscriber ID=4138
+                            subs_id = subs_id.Split('=').Last();
+                            try
+                            {
+                                new_subscriber.SubscriberId = Convert.ToInt32(subs_id);
+                                new_subscriber.log_line.Add(log_file_line);
+                                if (!client_ID_Dictionary.ContainsKey(conf_id))
+                                {
+                                    client_ID_Dictionary.Add(conf_id, new Dictionary<int, Subscriber> { });
+                                }
+
+                                if (!client_ID_Dictionary[conf_id].ContainsKey(new_subscriber.SubscriberId))
+                                {
+                                    client_ID_Dictionary[conf_id].Add(new_subscriber.SubscriberId, new_subscriber);
+                                }
+
+                            }
+                            catch (Exception ex)
+                            {
+                                add_to_main_log(String.Format("Не удалось преобразовать SubscriberID в int, передаётся [{0}] из строки [{1}]", subs_id, line_temp[1]));
+                                throw;
+                            }
+                            
                         }
 
 
@@ -277,13 +308,13 @@ namespace assembly_logs_parser
                         processed_conf_files_paths[conf_id].pocessed_file_path = String.Format("{0}\\[{1}] {2}.txt", Path.GetFullPath(conf_directory_path), conf_id, start_time_Line_filename);
                     }
 
-                   
-                   // если строчка содержит ID сеанса абонента, который подключился к конференции
+
+                    // если строчка содержит ID сеанса абонента, который подключился к конференции
                     Match client_seance_ID_match = client_seance_ID_fullstring_regex.Match(log_file_line);
                     //VSPThread:CONF(1-77).PARTY(11-0,2973,ФИО)->Outgoing seance 755411 come in to conference
                     if (client_seance_ID_match.Success)
                     {
-                        Subscriber new_subscriber = new Subscriber();
+                      //  Subscriber new_subscriber = new Subscriber();
                         // Сохранить ID сеанса и ID абонента в классе Subscriber
                         Regex id_subscriber_regex = new Regex(@"PARTY\(\d*\-\d*\,\d*\,");
                         Match id_subscriber_match = id_subscriber_regex.Match(log_file_line);
@@ -315,10 +346,10 @@ namespace assembly_logs_parser
                                 }
                                 else
                                 {
-                                    add_to_main_log(String.Format("абонент {0} повторно подключается к конференции {1} Строка [{2}]", new_subscriber.SubscriberId, conf_id, log_file_line));
+                                 //   add_to_main_log(String.Format("абонент {0} повторно подключается к конференции {1} Строка [{2}]", new_subscriber.SubscriberId, conf_id, log_file_line));
                                     client_ID_Dictionary[conf_id][new_subscriber.SubscriberId].log_line.Add(log_file_line);
                                 }
-                                
+
                                 client_seance_ID_Dictionary.Add(client_seance_ID_match_.Value.Trim(), conf_id);
                             }
                             else
@@ -343,10 +374,10 @@ namespace assembly_logs_parser
 
                     //если в словаре, где указаны пути обработанных селекторов, есть конференция с текущим ID 
                     if (processed_conf_files_paths.ContainsKey(conf_id))
-                    {          
+                    {
 
                         //   string temp_conf_id_file = Path.GetFullPath("assemblylogsparser_temp_folder") + "\\" + conf_id + ".txt";
-                      //  File.AppendAllText(processed_conf_files_paths[conf_id].pocessed_file_path, log_file_line + "\r\n");
+                        //  File.AppendAllText(processed_conf_files_paths[conf_id].pocessed_file_path, log_file_line + "\r\n");
 
 
                         if (processed_conf_files_paths[conf_id].pocessed_file_path != "")
@@ -361,52 +392,86 @@ namespace assembly_logs_parser
                                 add_to_main_log(String.Format("новый селектор [{0}]", processed_conf_files_paths[conf_id].pocessed_file_path));
                             }
                         }
-                        //если строчка содержит признак завершения конференции, очищаем путь к файлу записи, для создания нового.
+
+
+                        // Определяем причину завершения конференции
                         /*
                          Завершение Планировщиком
                          L120[01.03.2023 08:29:30-367](ID:01-0208 VSPThread:CONFPP)->Conference ClusterId=1 Id=77512 SchemeId=140 will stop after 30 sec
-                         L200[01.03.2023 08:29:30-367](ID:01-0208 VSPThread:CONF(1-140))->State: Stop
-
-
-                        Введеен код завершения
+                         L200[01.03.2023 08:29:30-367](ID:01-0208 VSPThread:CONF(1-140))->State: Stop                       
+                        */
+                        if (log_file_line.ToLower().Contains("will stop after ") && log_file_line.ToLower().Contains("->conference"))
+                        {
+                            string cnf_id_rom_line = log_file_line.Split('=').Last();
+                            conf_id = cnf_id_rom_line.Split(' ').First();
+                            processed_conf_files_paths[conf_id].stop_reason = "Завершено планировщиком";
+                        }
+                        /*
+                        Введен код завершения
                         L200[01.03.2023 08:21:42-772](ID:01-0208 VSPThread:CONF(1-391).PARTY(1-0,874,Крылов А.В.))->DTMF: Conf stop signal
                         L200[01.03.2023 08:21:42-772](ID:01-0208 VSPThread:CONF(1-391).PARTY(1-0,874,Крылов А.В.))->Stoping conference: Executing...
-                        L200[01.03.2023 08:21:42-772](ID:01-0208 VSPThread:CONF(1-391))->State: Stop
+                        L200[01.03.2023 08:21:42-772](ID:01-0208 VSPThread:CONF(1-391))->State: Stop */
+                        if (log_file_line.Contains("->DTMF: Conf stop signal"))
+                        {
+                            processed_conf_files_paths[conf_id].stop_reason = "Введен код завершения";
+                        }
 
-                        Остановил Супервизор
+                        /*  Остановил Супервизор
                         L120[01.03.2023 12:11:50-436](ID:01-0208 VSPThread:CONF(1-83))->Login Karkachev(1-10340) stoped conference
                         L200[01.03.2023 12:11:50-436](ID:01-0208 VSPThread:CONF(1-83))->State: Stop
+                        */
+                        if (log_file_line.Contains("stoped conference") && log_file_line.Contains("->Login"))
+                        {
+                            string supervisor_name = log_file_line.Split('(')[2];
+                            supervisor_name = supervisor_name.Split(' ').Last();
+                            processed_conf_files_paths[conf_id].stop_reason = "Остановил супервизор: " + supervisor_name;
+                        }
+
+                        /* Планировщик не смог запустить. Превышены лимиты
+                          VSPThread:CONF(1-546))->Conference 1-546 limits exceed: CHAlloc=16/15, DSPAlloc=18/17
                          */
+                        if (log_file_line.Contains("limits exceed: ") && log_file_line.Contains("->Conference"))
+                        {
+                            processed_conf_files_paths[conf_id].stop_reason = "Конференция не запустилась, превышен лимит " + log_file_line.Split(':').Last();
+                        }
 
+                            
 
-                        if (log_file_line.ToLower().Contains(stop_conference[0].ToLower()))
+                            //если строчка содержит признак завершения конференции, очищаем путь к файлу записи, для создания нового.
+                            if (log_file_line.ToLower().Contains(stop_conference[0].ToLower()))
                         {
                             processed_conf_files_paths[conf_id].pocessed_file_path = "";
 
-                            string stop_time_Line =  get_time_from_log_line(log_file_line);
+                            string stop_time_Line = get_time_from_log_line(log_file_line);
 
                             processed_conf_files_paths[conf_id].stop_time = stop_time_Line;
 
-                          //  string start_time_Line_filename = stop_time_Line.Replace(':', '.'); //04.01.2021 16.58.31
+                            //  string start_time_Line_filename = stop_time_Line.Replace(':', '.'); //04.01.2021 16.58.31
+                            if (client_ID_Dictionary.ContainsKey(conf_id))
+                            {
+                                processed_conf_files_paths[conf_id].real_participants_count = client_ID_Dictionary[conf_id].Count;
+                            }
+                            else
+                                processed_conf_files_paths[conf_id].real_participants_count = 0;
 
-                            processed_conf_files_paths[conf_id].real_participants_count = client_ID_Dictionary[conf_id].Count;
-                            string year_statistic_file_path = Path.GetFullPath(processed_conf_files_paths[conf_id].year + ".txt");
+                            string year_statistic_file_path = Path.GetFullPath("Статистика\\" + processed_conf_files_paths[conf_id].year + ".txt");
                             if (!File.Exists(year_statistic_file_path))
                             {
-                                File.AppendAllText(processed_conf_files_paths[conf_id].year + ".txt", "Запуск\tЗавершение\tID селектора\tЗапустил\tФактическая продолжительность\tЗаданная продолжительность\tФактическое кол-во участников\tЗаданное кол-во участников\r\n");
+                                File.AppendAllText(year_statistic_file_path, "Запуск\tЗавершение\tID селектора\tЗапустил\tФактическая продолжительность\tЗаданная продолжительность\tФактическое кол-во участников\tЗаданное кол-во участников\tПричина завершения\r\n");
                             }
-                            File.AppendAllText(processed_conf_files_paths[conf_id].year + ".txt", String.Format("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\r\n", 
-                                processed_conf_files_paths[conf_id].start_time, 
+                            File.AppendAllText(year_statistic_file_path, String.Format("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\r\n",
+                                processed_conf_files_paths[conf_id].start_time,
                                 processed_conf_files_paths[conf_id].stop_time,
                                 processed_conf_files_paths[conf_id].ID,
                                 processed_conf_files_paths[conf_id].manager_name,
                                 processed_conf_files_paths[conf_id].real_duration,
                                 processed_conf_files_paths[conf_id].seted_duration,
                                 processed_conf_files_paths[conf_id].real_participants_count,
-                                processed_conf_files_paths[conf_id].seted_participants_count));
+                                processed_conf_files_paths[conf_id].seted_participants_count,
+                                processed_conf_files_paths[conf_id].stop_reason));
                             client_ID_Dictionary[conf_id] = new Dictionary<int, Subscriber> { };
 
-                         //   client_ID_Dictionary[conf_id].;
+                            //   client_ID_Dictionary[conf_id].;
 
 
                             //   processed_conf_files_paths[conf_id].pocessed_file_path = String.Format("{0}\\[{1}] {2}.txt", Path.GetFullPath(conf_directory_path), conf_id, start_time_Line_filename);
@@ -432,7 +497,7 @@ namespace assembly_logs_parser
                                     add_to_main_log(processed_conf_files_paths[conf_id].error_discription);
                                 }
                             }
-                            
+
                         }
 
                     }
@@ -442,6 +507,10 @@ namespace assembly_logs_parser
 
         }
 
+
+        #region Отдельные функции
+
+        /*
         private static void scan_logs_only()
         {           
             //=================  формируем список лог файлов для обработки [assembly_logs_files_paths] =======================
@@ -621,11 +690,13 @@ namespace assembly_logs_parser
 
         }
 
+        */ 
+        #endregion
 
 
 
-
-        }
+    }
 
 }
+
 

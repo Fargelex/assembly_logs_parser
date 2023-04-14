@@ -22,8 +22,12 @@ namespace assembly_logs_parser.classes
         private int _seted_participants_count; // заданное кол-во участников  (NP_MAX_CH)
         private int _seted_can_speak_participants_count; // могут говорить (NP_MAX_DSP)
 
+
+
         private string _error_discription ="";
         private bool _is_error = false;
+
+        public string _stop_reason = "Отсутствие участников";
 
         public conf_class(string cnf_ID)
         {
@@ -40,6 +44,15 @@ namespace assembly_logs_parser.classes
             }
           
         }
+
+
+        public string stop_reason
+        {
+            get { return _stop_reason; }
+            set { _stop_reason = value; }
+        }
+
+
 
         public TimeSpan real_duration
         {
@@ -86,13 +99,13 @@ namespace assembly_logs_parser.classes
 
         public string start_time
         {
-            get { return _start_time.ToString("yyyy.MM.dd HH.mm.ss"); }
+            get { return _start_time.ToString("yyyy.MM.dd HH:mm:ss"); }
             set { _start_time = Convert.ToDateTime(value); }
         }
 
         public string stop_time
         {
-            get { return _stop_time.ToString("HH.mm.ss"); }
+            get { return _stop_time.ToString("HH:mm:ss"); }
             set
             {
                 _stop_time = Convert.ToDateTime(value);
