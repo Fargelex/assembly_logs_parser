@@ -18,6 +18,9 @@ namespace assembly_logs_parser
 
         static void Main(string[] args)
         {
+            Console.InputEncoding = Encoding.Unicode;
+            Console.OutputEncoding = Encoding.Unicode;
+            
             if (load_settings())
             {
                 scan_logs();
