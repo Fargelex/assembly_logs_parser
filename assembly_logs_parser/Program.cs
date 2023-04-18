@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -20,7 +21,7 @@ namespace assembly_logs_parser
         {
             Console.InputEncoding = Encoding.Unicode;
             Console.OutputEncoding = Encoding.Unicode;
-            
+            add_to_main_log("проверка текста");
             if (load_settings())
             {
                 scan_logs();
@@ -33,12 +34,14 @@ namespace assembly_logs_parser
         }
 
         private static void add_to_main_log(string text_log, bool add_to_text_log = true)
-        {
-            string log_string = '[' + DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss") + "]\t" + text_log.Trim();
+        {            
+            //  string log_string = '[' + DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss") + "]\t" + text_log.Trim();
+            string log_string = $"[{DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss")}]\t {text_log.Trim()}";
+            string assemblyName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
             Console.WriteLine(log_string);
             if (add_to_text_log)
             {
-                File.AppendAllText("assembly_logs_parser_log.log", log_string + "\r\n");
+                File.AppendAllText($"{assemblyName}_log.log", log_string + "\r\n");
             }
         }
 
