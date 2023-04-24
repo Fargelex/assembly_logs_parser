@@ -14,6 +14,8 @@ namespace assembly_logs_parser
     {
 
         static Dictionary<string, List<string>> settings_dictionary = new Dictionary<string, List<string>> { };
+        static Dictionary<string, byte> scannedConferences = new Dictionary<string, byte> { };   // список обработанных селекторов
+
 
         static string processed_log_files = Path.GetFullPath("assemblylogsparser_temp_folder") + "\\processed_log_files.txt";
 
@@ -24,6 +26,7 @@ namespace assembly_logs_parser
             add_to_main_log("проверка текста");
             if (load_settings())
             {
+                loadScannedConferences();
                 scan_logs();
                 //   scan_processed_log_files();
             }
@@ -33,8 +36,8 @@ namespace assembly_logs_parser
             Console.ReadKey();
         }
 
-        private static void add_to_main_log(string text_log, bool add_to_text_log = true)
-        {            
+        private static void add_to_main_log(string text_log = "проверка", bool add_to_text_log = true)
+        {
             //  string log_string = '[' + DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss") + "]\t" + text_log.Trim();
             string log_string = $"[{DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss")}]\t {text_log.Trim()}";
             string assemblyName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
@@ -58,7 +61,7 @@ namespace assembly_logs_parser
                 add_to_main_log("создаю папку 'Статистика' в " + Path.GetFullPath("Статистика"));
                 Directory.CreateDirectory("Статистика");
             }
-            
+
             if (!Directory.Exists("assemblylogsparser_temp_folder")) // папка в которую будет сохраняться рабочая инфа программы
             {
                 add_to_main_log("создаю папку 'assemblylogsparser_temp_folder' в " + Path.GetFullPath("assemblylogsparser_temp_folder"));
@@ -150,6 +153,25 @@ namespace assembly_logs_parser
             time_string = time_string.Split('[')[1]; //" из строки L120[04.01.2021 16:58:31-318 получаем 04.01.2021 16:58:31-318
             time_string = time_string.Split('-')[0]; //убираем последние 4 символа 04.01.2021 16:58:31
             return time_string;
+        }
+
+        private static void loadScannedConferences()  // [40] 01.03.2023 15.04.00.txt
+        {
+            string statFilePath = Path.GetFullPath("Статистика\\" + DateTime.Now.Year.ToString() + ".txt");
+            if (File.Exists(statFilePath))
+            {
+                string[] statFileLines = File.ReadAllLines(statFilePath);
+                for (int i = 1; i < statFileLines.Length; i++)
+                {
+                    string[] tmpArr = statFileLines[i].Split('\t');
+                    string tmp = $"[{tmpArr[2]}] {tmpArr[0]}";
+                    if (!scannedConferences.ContainsKey(tmp))
+                    {
+                        scannedConferences.Add(tmp, 0);
+                    }
+                }
+            }
+            add_to_main_log();
         }
 
         private static void scan_logs()
@@ -302,7 +324,7 @@ namespace assembly_logs_parser
                                 add_to_main_log(String.Format("Не удалось преобразовать SubscriberID в int, передаётся [{0}] из строки [{1}]", subs_id, line_temp[1]));
                                 throw;
                             }
-                            
+
                         }
 
 
@@ -320,7 +342,7 @@ namespace assembly_logs_parser
                     //VSPThread:CONF(1-77).PARTY(11-0,2973,ФИО)->Outgoing seance 755411 come in to conference
                     if (client_seance_ID_match.Success)
                     {
-                      //  Subscriber new_subscriber = new Subscriber();
+                        //  Subscriber new_subscriber = new Subscriber();
                         // Сохранить ID сеанса и ID абонента в классе Subscriber
                         Regex id_subscriber_regex = new Regex(@"PARTY\(\d*\-\d*\,\d*\,");
                         Match id_subscriber_match = id_subscriber_regex.Match(log_file_line);
@@ -352,7 +374,7 @@ namespace assembly_logs_parser
                                 }
                                 else
                                 {
-                                 //   add_to_main_log(String.Format("абонент {0} повторно подключается к конференции {1} Строка [{2}]", new_subscriber.SubscriberId, conf_id, log_file_line));
+                                    //   add_to_main_log(String.Format("абонент {0} повторно подключается к конференции {1} Строка [{2}]", new_subscriber.SubscriberId, conf_id, log_file_line));
                                     client_ID_Dictionary[conf_id][new_subscriber.SubscriberId].log_line.Add(log_file_line);
                                 }
 
@@ -441,11 +463,18 @@ namespace assembly_logs_parser
                             processed_conf_files_paths[conf_id].stop_reason = "Конференция не запустилась, превышен лимит " + log_file_line.Split(':').Last();
                         }
 
-                            
 
-                            //если строчка содержит признак завершения конференции, очищаем путь к файлу записи, для создания нового.
-                            if (log_file_line.ToLower().Contains(stop_conference[0].ToLower()))
+
+                        //если строчка содержит признак завершения конференции, очищаем путь к файлу записи, для создания нового.
+                        if (log_file_line.ToLower().Contains(stop_conference[0].ToLower()))
                         {
+                            // добавляем в список обработанных конференций
+                            string pocessedFileName = Path.GetFileName(processed_conf_files_paths[conf_id].pocessed_file_path);
+                            if (!scannedConferences.ContainsKey(pocessedFileName))
+                            {
+                                scannedConferences.Add(pocessedFileName, 0);
+                            }
+
                             processed_conf_files_paths[conf_id].pocessed_file_path = "";
 
                             string stop_time_Line = get_time_from_log_line(log_file_line);
@@ -696,7 +725,7 @@ namespace assembly_logs_parser
 
         }
 
-        */ 
+        */
         #endregion
 
 
