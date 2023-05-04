@@ -11,7 +11,7 @@ namespace assembly_logs_parser.classes
     internal class conf_class
     {
         private int _ID; // уникальный ID селектора
-        private string _pocessed_file_path; // путь в который сохранять строчки лога
+        private string _pocessed_file_path = ""; // путь в который сохранять строчки лога
         private DateTime _start_time; // время начала сектора
         private DateTime _stop_time = new DateTime(1990, 01, 01, 00, 00, 00); //время завершения селектора
         private string _manager_name = "Планировщик";
@@ -99,7 +99,7 @@ namespace assembly_logs_parser.classes
 
         public string start_time
         {
-            get { return _start_time.ToString("yyyy.MM.dd HH:mm:ss"); }
+            get { return _start_time.ToString("dd.MM.yyyy HH:mm:ss"); }
             set { _start_time = Convert.ToDateTime(value); }
         }
 

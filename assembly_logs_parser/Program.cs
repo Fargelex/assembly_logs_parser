@@ -173,7 +173,7 @@ namespace assembly_logs_parser
                 for (int i = 1; i < statFileLines.Length; i++)
                 {
                     string[] tmpArr = statFileLines[i].Split('\t');
-                    string tmp = $"[{tmpArr[2]}] {tmpArr[0]}";
+                    string tmp = ($"[{tmpArr[2]}] {tmpArr[0]}.txt").Replace(':','.');// в файле статистики время через двоеточие, а в имени файла двоеточие заменено на точки, в scannedConferences добавляем имена файлов;
                     if (!scannedConferences.ContainsKey(tmp))
                     {
                         scannedConferences.Add(tmp, 0);
