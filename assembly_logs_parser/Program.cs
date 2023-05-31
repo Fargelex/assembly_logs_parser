@@ -255,12 +255,7 @@ namespace assembly_logs_parser
 
                     
 
-                    //строчка содержит признак начала конференции в ручную администратором
-                    if (log_file_line.Contains("Login") && log_file_line.Contains("started conference"))  //"L120[04.01.2021 16:58:31-318](ID:01-0208 VSPThread:CONF(1-203))->Login disp(1-666) started conference"
-                    {
-                        started_conference_line = true;
-                        //  valid_line = true;
-                    }
+                   
 
 
 
