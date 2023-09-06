@@ -18,12 +18,15 @@ namespace assembly_logs_parser.classes
         private string _managerNameStartedConference;
         private uint _seanceID;
         private uint _subscriberID;
+        public bool hasError { get; set; }
+        public string errorMessage { get; set; }
 
 
 
 
         public LogFileLineClass(string inputLogFileLine)
         {
+            hasError = false;
             Match confIDMatch = new Regex(@"VSPThread:CONF\(\d*-\d*").Match(inputLogFileLine); //"VSPThread:CONF(1-203" 
             if (confIDMatch.Success)
             {
@@ -92,8 +95,21 @@ namespace assembly_logs_parser.classes
         {
             string tmpString = inputLogFileLine.Split(']')[0];//  L120[19.02.2021 07:00:00-620
             tmpString = tmpString.Split('[')[1]; //19.02.2021 07:00:00-620
-            tmpString = tmpString.Replace('-', ':');
-            return Convert.ToDateTime(tmpString);
+            tmpString = tmpString.Replace('-', '.');
+            DateTime dt = new DateTime(2000, 1, 1, 00, 00, 33);
+            try
+            {
+                dt = Convert.ToDateTime(tmpString);
+                return dt;
+            }
+            catch (Exception ex)
+            {
+                hasError = true;
+                errorMessage = String.Format("Ошибка в преобразовании даты из String в DateTime. Строка [{0}] | Текст Exeption [{1}]", inputLogFileLine, ex.Message);
+                return dt;
+              //  throw;
+            }           
+            
 
         } //getTimeFromLogFileLine
 
